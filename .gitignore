@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+.env
+.env.*
+!.env.example
+# renders and audio are published elsewhere (YouTube, releases), not committed
+out/
+renders/
+*.mp4
+*.webm
+*.mov
+*.wav
