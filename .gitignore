@@ -11,3 +11,4 @@ renders/
 *.mov
 *.wav
 dist/
+.hyperframes/
