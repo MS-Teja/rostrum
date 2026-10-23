@@ -1,0 +1,16 @@
+{
+  "sounds": [
+    { "at": "b1:cache", "sound": "whoosh-short", "align": "end", "gain": 0.2 },
+    { "at": "b1:cache", "sound": "pop", "gain": 0.2 },
+    { "at": "b1:user", "sound": "whoosh-short", "align": "end", "gain": 0.2 },
+    { "at": "b1:user", "sound": "click-soft", "gain": 0.28, "shift": -0.33 },
+    { "at": "b1:user", "sound": "pop", "gain": 0.2 },
+    { "at": "b1:socket", "sound": "whoosh-short", "align": "end", "gain": 0.2 },
+    { "at": "b1:socket", "sound": "click-soft", "gain": 0.28, "shift": -0.27 },
+    { "at": "b1:socket", "sound": "pop", "gain": 0.2 },
+    { "at": "b1:nic", "sound": "whoosh-short", "align": "end", "gain": 0.2 },
+    { "at": "b1:nic", "sound": "pop", "gain": 0.2 },
+    { "at": "b2:straight", "sound": "whoosh", "gain": 0.26, "shift": 0.15 },
+    { "at": "b2:straight", "sound": "ping", "gain": 0.16, "shift": 0.75 }
+  ]
+}

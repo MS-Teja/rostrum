@@ -33,6 +33,8 @@ def render(scene, engine="cycles", samples=None, res=(1920, 1080), pct=100, fps=
         c.caustics_refractive = False
         c.sample_clamp_indirect = 8.0
         c.blur_glossy = 0.5
+        # Keep the scene on the GPU between frames of an animation instead of rebuilding it.
+        scene.render.use_persistent_data = True
     elif engine == "eevee":
         r.engine = "BLENDER_EEVEE"
         e = scene.eevee

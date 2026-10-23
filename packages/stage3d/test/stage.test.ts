@@ -55,7 +55,7 @@ describe("Python timing", () => {
     const got = python(`
 import json
 from rostrum_stage.timing import frame, cue_time
-t = {"cues": [{"key": "b3:sendfile", "time": 12.34}], "beats": []}
+t = {"cues": {"b3:sendfile": 12.34}, "beats": []}
 print(json.dumps([frame(0), frame(1 / 30), frame(0.5 / 30), frame(0.49 / 30), frame(10, 24), cue_time(t, "b3:sendfile", 0.4)]))`);
     expect(got.slice(0, 5)).toEqual([1, 2, 2, 1, 241]);
     expect(got[5]).toBeCloseTo(12.74, 9);
@@ -65,7 +65,7 @@ print(json.dumps([frame(0), frame(1 / 30), frame(0.5 / 30), frame(0.49 / 30), fr
     expect(() =>
       python(`
 from rostrum_stage.timing import cue_time
-cue_time({"cues": [{"key": "b1:topic", "time": 1.0}], "beats": []}, "b9:nope")`),
+cue_time({"cues": {"b1:topic": 1.0}, "beats": []}, "b9:nope")`),
     ).toThrow(/b1:topic/);
   });
 });

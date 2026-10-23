@@ -19,12 +19,12 @@ def frame(seconds, fps=30, start=1):
 
 
 def cue_time(timing, key, lead=0.0):
-    """Seconds into the video at which cue `key` (e.g. "b3:sendfile") is spoken."""
-    for cue in timing["cues"]:
-        if cue["key"] == key:
-            return cue["time"] + lead
-    known = ", ".join(c["key"] for c in timing["cues"])
-    raise KeyError(f"no cue {key!r}; known cues: {known}")
+    """Seconds into the video at which cue `key` (e.g. "b2:sendfile") is spoken.
+    `timing["cues"]` maps each key to its time, as `rostrum voice` writes it."""
+    cues = timing["cues"]
+    if key in cues:
+        return cues[key] + lead
+    raise KeyError(f"no cue {key!r}; known cues: {', '.join(cues)}")
 
 
 def beat_span(timing, beat_id, lead=0.0):

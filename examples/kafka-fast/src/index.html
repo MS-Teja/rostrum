@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Why Kafka is fast</title>
+    <style>
+      :root {
+        --text: #f2f4f7;
+        --muted: #7d8696;
+        --accent: #6aa8ff;
+        --line: rgba(255, 255, 255, 0.42);
+        --halo: 0 2px 14px rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.8);
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+        font-family: Inter, sans-serif;
+      }
+      #plate {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+      }
+      #overlay {
+        position: absolute;
+        inset: 0;
+      }
+      #lines {
+        position: absolute;
+        inset: 0;
+      }
+      .label,
+      .eyebrow,
+      .title,
+      .space,
+      .count {
+        position: absolute;
+        white-space: nowrap;
+        text-shadow: var(--halo);
+      }
+      .label {
+        font-size: 32px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .label.accent {
+        color: var(--accent);
+      }
+      .eyebrow {
+        left: 120px;
+        top: 96px;
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .title {
+        left: 120px;
+        top: 140px;
+        font-size: 68px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+        color: var(--text);
+      }
+      .space {
+        left: 120px;
+        font-size: 32px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .count {
+        right: 120px;
+        top: 112px;
+        text-align: right;
+        color: var(--text);
+      }
+      .count b {
+        font-size: 96px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+      }
+      .count span {
+        display: block;
+        font-size: 30px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .badge {
+        position: absolute;
+        width: 46px;
+        height: 46px;
+        margin: -23px 0 0 -23px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        font-size: 28px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #fade {
+        position: absolute;
+        inset: 0;
+        background: #000;
+      }
+    </style>
+    <script src="vendor/rostrum.js"></script>
+    <script src="timing.js"></script>
+    <script src="anchors.js"></script>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="{{DURATION}}"
+      data-width="1920"
+      data-height="1080"
+      data-no-timeline
+    >
+      <video id="plate" class="clip" src="renders/plate.mp4" data-start="0" data-track-index="0" muted playsinline></video>
+      <div id="overlay"><svg id="lines" width="1920" height="1080"></svg></div>
+      <div id="fade"></div>
+      <audio id="narration" class="clip" src="audio/voice.wav" data-start="0.5" data-track-index="1" data-volume="1"></audio>
+      <audio id="sfx" class="clip" src="audio/sfx.wav" data-start="0" data-track-index="2" data-volume="1"></audio>
+    </div>
+    <script>
+      const { ease, spring, progress, lerp, onSeek } = Rostrum;
+      const LEAD = 0.5; // matches the narration's data-start and the 3D scene's LEAD
+      const TRAVEL = 0.6; // how long the data takes to travel one leg in the 3D scene
+      const T = window.ROSTRUM_TIMING;
+      const at = (key) => T.cues[key] + LEAD;
+      const C = {
+        four: at("b1:four"),
+        cache: at("b1:cache"),
+        user: at("b1:user"),
+        socket: at("b1:socket"),
+        nic: at("b1:nic"),
+        sendfile: at("b2:sendfile"),
+        straight: at("b2:straight"),
+      };
+      C.direct = C.straight + 0.75;
+      const END = T.duration + LEAD + 1.2;
+      const pop = spring({ response: 0.35, damping: 0.65 });
+
+      const NS = "http://www.w3.org/2000/svg";
+      const overlay = document.getElementById("overlay");
+      const svg = document.getElementById("lines");
+      const fade = document.getElementById("fade");
+      const el = (cls, text) => {
+        const e = document.createElement("div");
+        e.className = cls;
+        e.textContent = text;
+        overlay.append(e);
+        return e;
+      };
+
+      // Labels pinned to Blender's anchors: [anchor, text, dx, dy, appears, text after sendfile]
+      const LABELS = [
+        ["ssd", "SSD", 0, 110, 0.4],
+        ["page_cache", "Page cache", -170, 150, C.cache],
+        ["kafka", "Kafka", 150, -40, C.user, "Kafka's memory: skipped"],
+        ["socket_buffer", "Socket buffer", 170, 150, C.socket, "Socket buffer: skipped"],
+        ["nic", "Network card", 0, 125, C.nic],
+      ].map(([a, text, dx, dy, from, later]) => ({
+        a, text, dx, dy, from, later,
+        node: el("label", text),
+        line: svg.appendChild(document.createElementNS(NS, "line")),
+        dot: svg.appendChild(document.createElementNS(NS, "circle")),
+      }));
+      // The system calls flash as the data crosses the glass.
+      const CALLS = [
+        ["syscall0", -150, C.user - TRAVEL * 0.55],
+        ["syscall1", 150, C.socket - TRAVEL * 0.45],
+      ].map(([a, dx, from]) => ({ a, dx, from, node: el("label accent", "system call") }));
+      const BADGES = [
+        ["page_cache", 1, -62, -44, C.cache],
+        ["user_buffer", 2, -78, -30, C.user],
+        ["socket_buffer", 3, 62, -44, C.socket],
+        ["nic", 4, -70, -40, C.nic],
+      ].map(([a, n, dx, dy, from]) => ({ a, n, dx, dy, from, node: el("badge", String(n)) }));
+
+      const eyebrowA = el("eyebrow", "The usual path");
+      const titleA = el("title", "Four copies");
+      const eyebrowB = el("eyebrow", "sendfile");
+      const titleB = el("title", "Page cache → network card");
+      const user = el("space", "User space");
+      const kernel = el("space", "Kernel");
+      const count = el("count", "");
+
+      function anchorsAt(t) {
+        const frames = window.ANCHORS.frames;
+        const f = Math.min(Math.max(1, Math.floor(t * window.ANCHORS.fps + 1e-6) + 1), Object.keys(frames).length);
+        return frames[f];
+      }
+      const show = (node, o, dy = 0) => {
+        node.style.opacity = String(o);
+        node.style.transform = `translateY(${(1 - o) * dy}px)`;
+      };
+
+      onSeek((t) => {
+        const A = anchorsAt(t);
+        const after = ease.move(progress({ start: C.sendfile, duration: 0.5 }, t));
+
+        for (const l of LABELS) {
+          const [x, y] = A[l.a];
+          const o = ease.enter(progress({ start: l.from, duration: 0.35 }, t));
+          const ex = x + l.dx;
+          const ey = y + l.dy;
+          l.node.textContent = l.later && t >= C.sendfile ? l.later : l.text;
+          l.node.style.color = l.later && t >= C.sendfile ? "var(--muted)" : "";
+          if (Math.abs(l.dx) > Math.abs(l.dy) * 1.5) {
+            l.node.style.left = `${ex + 12}px`;
+            l.node.style.top = `${ey - 20}px`;
+          } else {
+            l.node.style.left = `${ex}px`;
+            l.node.style.top = l.dy > 0 ? `${ey + 12}px` : `${ey - 52}px`;
+            l.node.style.translate = "-50% 0";
+          }
+          l.node.style.opacity = String(o);
+          Object.entries({ x1: x, y1: y, x2: x + l.dx * o, y2: y + l.dy * o }).forEach(([k, v]) => l.line.setAttribute(k, v));
+          l.line.setAttribute("style", `stroke: var(--line); stroke-width: 2; opacity: ${o}`);
+          Object.entries({ cx: x, cy: y, r: 6 }).forEach(([k, v]) => l.dot.setAttribute(k, v));
+          l.dot.setAttribute("style", `fill: #fff; opacity: ${o}`);
+        }
+        for (const c of CALLS) {
+          const [x, y] = A[c.a];
+          c.node.style.left = c.dx < 0 ? "" : `${x + c.dx}px`;
+          c.node.style.right = c.dx < 0 ? `${1920 - x - c.dx}px` : "";
+          c.node.style.top = `${y - 30}px`;
+          c.node.style.opacity = String(ease.enter(progress({ start: c.from, duration: 0.3 }, t)) * lerp(1, 0.35, after));
+        }
+        for (const b of BADGES) {
+          const [x, y] = A[b.a];
+          const s = t >= b.from ? pop.at(t - b.from) : 0;
+          b.node.style.left = `${x + b.dx}px`;
+          b.node.style.top = `${y + b.dy}px`;
+          b.node.style.transform = `scale(${s})`;
+          b.node.style.opacity = b.n === 2 || b.n === 3 ? String(lerp(1, 0.3, after)) : "1";
+        }
+
+        show(eyebrowA, ease.enter(progress({ start: 0.4, duration: 0.5 }, t)) * (1 - after), 12);
+        show(titleA, ease.enter(progress({ start: 0.55, duration: 0.5 }, t)) * (1 - after), 16);
+        show(eyebrowB, ease.enter(progress({ start: C.sendfile + 0.25, duration: 0.5 }, t)), 12);
+        show(titleB, ease.enter(progress({ start: C.sendfile + 0.4, duration: 0.5 }, t)), 16);
+
+        const by = A.boundary[1];
+        user.style.top = `${by - 70}px`;
+        kernel.style.top = `${by + 26}px`;
+        const spaces = ease.enter(progress({ start: C.cache, duration: 0.5 }, t));
+        user.style.opacity = kernel.style.opacity = String(spaces);
+
+        // The counter: copies made so far, then sendfile's one.
+        const copies = [C.cache, C.user, C.socket, C.nic].filter((c) => t >= c).length;
+        if (t < C.sendfile) {
+          count.innerHTML = copies ? `<b>${copies}</b><span>${copies === 1 ? "copy" : "copies"}</span>` : "";
+          count.style.opacity = "1";
+        } else {
+          count.innerHTML = t >= C.direct ? "<b>1</b><span>copy, the last one</span>" : "<b>4</b><span>copies</span>";
+          count.style.opacity = String(t >= C.direct ? 1 : 1 - after);
+        }
+
+        fade.style.opacity = String(Math.max(1 - progress({ start: 0, duration: 0.4 }, t), progress({ start: END - 0.5, duration: 0.5 }, t)));
+      });
+    </script>
+  </body>
+</html>
