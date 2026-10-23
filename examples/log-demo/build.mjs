@@ -72,7 +72,7 @@ const duration = Math.ceil((total + 0.6) * 100) / 100;
 writeFileSync(join(here, "scene.js"), `window.ROSTRUM_SCENE = ${JSON.stringify({ duration, events })};\n`);
 writeFileSync(
   join(here, "index.html"),
-  readFileSync(join(here, "composition.html"), "utf8").replace("{{DURATION}}", String(duration)),
+  readFileSync(join(here, "src/index.html"), "utf8").replace("{{DURATION}}", String(duration)),
 );
 copyFileSync(join(here, "../../packages/primitives/dist/rostrum.js"), join(here, "vendor/rostrum.js"));
 

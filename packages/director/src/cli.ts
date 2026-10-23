@@ -1,12 +1,15 @@
-import { readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join, resolve } from "node:path";
 import { checkFacts, parseFactIds, parseScript } from "./script";
 import { narrate } from "./voice";
 
 const USAGE = `rostrum <command> <dir>
 
-  check <dir>   Check script.md against facts.md
-  voice <dir>   Speak script.md with word timings; write audio/ and timing.js`;
+  check <dir>     Check script.md against facts.md
+  voice <dir>     Speak script.md with word timings; write audio/ and timing.js
+  compose <dir>   Build index.html from src/index.html and timing.js`;
 
 const [command, target] = process.argv.slice(2);
 if (!command || !target) {
@@ -42,7 +45,57 @@ function voice(): number {
   return n.cues.some((c) => c.estimated) ? 2 : 0;
 }
 
-const commands: Record<string, () => number> = { check, voice };
+/**
+ * Turn an example into a HyperFrames project: src/index.html → index.html with
+ * the narration's length filled in, plus the primitives bundle in vendor/.
+ */
+function compose(): number {
+  const here = import.meta.dirname;
+  const timingFile = join(dir, "timing.js");
+  const timing = JSON.parse(readFileSync(timingFile, "utf8").replace(/^window\.ROSTRUM_TIMING = /, "").replace(/;\s*$/, "")) as {
+    duration: number;
+    cues: Record<string, number>;
+  };
+  const tail = Number(process.env.ROSTRUM_TAIL ?? 3.5);
+  const duration = Math.ceil((timing.duration + tail) * 100) / 100;
+  const template = readFileSync(join(dir, "src/index.html"), "utf8");
+  writeFileSync(join(dir, "index.html"), template.replaceAll("{{DURATION}}", String(duration)));
+  mkdirSync(join(dir, "vendor"), { recursive: true });
+  copyFileSync(resolve(here, "../../primitives/dist/rostrum.js"), join(dir, "vendor/rostrum.js"));
+
+  // Narration levelled for YouTube (−17 LUFS here, so the mix with sound effects lands near YouTube's −14).
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", "audio/narration.wav", "-af", "loudnorm=I=-17:TP=-1.5:LRA=11", "-ar", "48000", "audio/voice.wav"], { cwd: dir });
+
+  // Sound effects placed on cue words, mixed into one track.
+  const sfxFile = join(dir, "sfx.json");
+  if (existsSync(sfxFile)) {
+    const { sounds } = JSON.parse(readFileSync(sfxFile, "utf8")) as {
+      sounds: Array<{ at: string; sound: string; gain?: number; shift?: number; align?: "start" | "end" }>;
+    };
+    const lead = Number(template.match(/id="narration"[^>]*?data-start="([\d.]+)"/s)?.[1] ?? 0);
+    const library = process.env.ROSTRUM_SFX_DIR ?? resolve(dirname(createRequire(import.meta.url).resolve("hyperframes/package.json")), "dist/skills/media-use/audio/assets/sfx");
+    const inputs: string[] = [];
+    const chains: string[] = [];
+    sounds.forEach((s, i) => {
+      const file = join(library, `${s.sound}.mp3`);
+      const cueTime = timing.cues[s.at];
+      if (cueTime === undefined) throw new Error(`sfx.json: no cue "${s.at}"`);
+      const length = Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file], { encoding: "utf8" }));
+      const start = Math.max(0, lead + cueTime + (s.shift ?? 0) - (s.align === "end" ? length : 0));
+      const ms = Math.round(start * 1000);
+      inputs.push("-i", file);
+      chains.push(`[${i}:a]aresample=48000,volume=${s.gain ?? 0.3},adelay=${ms}|${ms}[s${i}]`);
+    });
+    const mix = `${chains.join(";")};${sounds.map((_, i) => `[s${i}]`).join("")}amix=inputs=${sounds.length}:normalize=0:duration=longest[out]`;
+    execFileSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", mix, "-map", "[out]", "-ac", "2", "audio/sfx.wav"], { cwd: dir });
+    console.log(`sound effects: ${sounds.length} placed from ${library}`);
+  }
+
+  console.log(`index.html ready · ${duration} s (narration ${timing.duration} s + ${tail} s tail)`);
+  return 0;
+}
+
+const commands: Record<string, () => number> = { check, voice, compose };
 const run = commands[command];
 if (!run) {
   console.error(USAGE);
