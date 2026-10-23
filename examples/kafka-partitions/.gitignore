@@ -1,6 +1,7 @@
 audio/
 timing.js
-index.html
+/index.html
 vendor/
 renders/
 storyboard/
+.hyperframes/
