@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "historyId": "b199177b-7cbf-45b5-ad1c-bc3b78395a04",
+  "currentRevision": null,
+  "pendingChanges": false,
+  "files": {
+    "README.md": {
+      "hash": "58dfed5bb8a0ea31443f035ff748cae90197baf1f8228ef59ed4fb29fa961aca",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/58/58dfed5bb8a0ea31443f035ff748cae90197baf1f8228ef59ed4fb29fa961aca"
+    },
+    "audio/b1.wav": {
+      "hash": "6b1d22783069528e889ddc793e90c11443ae1a973a660b2b41276e29caeaa5f2",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/6b/6b1d22783069528e889ddc793e90c11443ae1a973a660b2b41276e29caeaa5f2"
+    },
+    "audio/b1.words.json": {
+      "hash": "c8d04fab253f36e17415bad6d1ad1376a47ced324dc24ae4b2d3a3da9d9b1ba6",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/c8/c8d04fab253f36e17415bad6d1ad1376a47ced324dc24ae4b2d3a3da9d9b1ba6"
+    },
+    "audio/b2.wav": {
+      "hash": "556266973810c4ccef1c988d223e448c85965fa3ce9defb6bad2222b0fbaa0b0",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/55/556266973810c4ccef1c988d223e448c85965fa3ce9defb6bad2222b0fbaa0b0"
+    },
+    "audio/b2.words.json": {
+      "hash": "c3191e71718da073122aa13c20f9f7959323f9f0b03a33a2188443d8b4635098",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/c3/c3191e71718da073122aa13c20f9f7959323f9f0b03a33a2188443d8b4635098"
+    },
+    "audio/b3.wav": {
+      "hash": "67305b16059e2ae8f28bf56af0a246ccdbb9bfeb7c19621ba85ad30a2cf55964",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/67/67305b16059e2ae8f28bf56af0a246ccdbb9bfeb7c19621ba85ad30a2cf55964"
+    },
+    "audio/b3.words.json": {
+      "hash": "2922b7ea9a051d2a05c33c7c23b2be6fedaad3b0fbe5c837bb77294d23148790",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/29/2922b7ea9a051d2a05c33c7c23b2be6fedaad3b0fbe5c837bb77294d23148790"
+    },
+    "audio/b4.wav": {
+      "hash": "b7e635861dc6d767bd5ad6d5dc32ab59efe5c47b169be79beaea81234b45f328",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/b7/b7e635861dc6d767bd5ad6d5dc32ab59efe5c47b169be79beaea81234b45f328"
+    },
+    "audio/b4.words.json": {
+      "hash": "ed1e58774a72d59f44c5df61b685028d14d4faa0af030d9ab3354020b521ab6e",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/ed/ed1e58774a72d59f44c5df61b685028d14d4faa0af030d9ab3354020b521ab6e"
+    },
+    "audio/narration.wav": {
+      "hash": "85ce41fb20789c5a4b1c61295ced1ba77b722dacc493664487c49b052e41eaa6",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/85/85ce41fb20789c5a4b1c61295ced1ba77b722dacc493664487c49b052e41eaa6"
+    },
+    "build.mjs": {
+      "hash": "a4e1c5e17e30d791b177ed3f79f8863ae87547289f47effe60a908d9d9ec44fe",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/a4/a4e1c5e17e30d791b177ed3f79f8863ae87547289f47effe60a908d9d9ec44fe"
+    },
+    "composition.html": {
+      "hash": "4215b149514037d87edac525e3e8c7cd63a1d0e4619d0b6cbe4081763551b6c8",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/42/4215b149514037d87edac525e3e8c7cd63a1d0e4619d0b6cbe4081763551b6c8"
+    },
+    "hyperframes.json": {
+      "hash": "e246f6b9fce32c6fcb0cff56198e5fe5105b1c2c4e138254732b6eb21ef37c7e",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/e2/e246f6b9fce32c6fcb0cff56198e5fe5105b1c2c4e138254732b6eb21ef37c7e"
+    },
+    "index.html": {
+      "hash": "067c9db966e59e6adeb7004cc208b5e53f2ccd9cde77c5e64832baface2678c0",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/06/067c9db966e59e6adeb7004cc208b5e53f2ccd9cde77c5e64832baface2678c0"
+    },
+    "meta.json": {
+      "hash": "fd0c3d226b69e20f50281526bca4c5d2e97c2a2445ffcc7c93c2f08672d08f52",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/fd/fd0c3d226b69e20f50281526bca4c5d2e97c2a2445ffcc7c93c2f08672d08f52"
+    },
+    "scene.js": {
+      "hash": "9b3e5f8975238c27ef584994a010000c17421d8734f523b7cad04507244dcb12",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/9b/9b3e5f8975238c27ef584994a010000c17421d8734f523b7cad04507244dcb12"
+    },
+    "script.json": {
+      "hash": "28108dfa8d0448ebdb8032476679a16e0889687b1f9b09cdc3eb8881cebe9fdc",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/28/28108dfa8d0448ebdb8032476679a16e0889687b1f9b09cdc3eb8881cebe9fdc"
+    },
+    "vendor/rostrum.js": {
+      "hash": "d296653596a97332ce51e1f04f666e8efa5f0a326abbc1d270aac30e18df84c0",
+      "content": "/Users/teja/.cache/hyperframes/history/b199177b-7cbf-45b5-ad1c-bc3b78395a04/blobs/d2/d296653596a97332ce51e1f04f666e8efa5f0a326abbc1d270aac30e18df84c0"
+    }
+  },
+  "revisions": {},
+  "checks": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  },
+  "snapshots": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  },
+  "renders": {
+    "latest": {
+      "id": "eb8dff0e-fca6-47bc-a7e3-4327f2037490",
+      "completedAt": 1792687198759,
+      "output": "/Users/teja/Products/AI-Editor/rostrum/examples/log-demo/renders/log-demo.mp4",
+      "status": "completed",
+      "revision": null
+    },
+    "retainedRevisions": []
+  },
+  "pendingArtifactCleanup": []
+}

@@ -1,0 +1,11 @@
+{
+  "voice": "am_michael",
+  "speed": 1.05,
+  "pause": 0.25,
+  "beats": [
+    { "id": "b1", "text": "A log is a list you can only add to." },
+    { "id": "b2", "text": "Each new record goes on the end and gets the next offset: [zero|r0], [one|r1], [two|r2], [three|r3]." },
+    { "id": "b3", "text": "A [reader] keeps its place by offset, and [moves forward|advance] as it reads." },
+    { "id": "b4", "text": "Old records [expire], but no offset ever changes." }
+  ]
+}

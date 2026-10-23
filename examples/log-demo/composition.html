@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Append-only log</title>
+    <style>
+      :root {
+        --rs-bg: #0b0b0e;
+        --rs-surface: #16171c;
+        --rs-stroke: #2b2d35;
+        --rs-text: #f5f5f7;
+        --rs-muted: #8b8f99;
+        --rs-accent: #5b8cff;
+        --rs-accent-soft: rgba(91, 140, 255, 0.16);
+        --rs-font: Inter, sans-serif;
+        --rs-mono: "JetBrains Mono", monospace;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--rs-bg);
+      }
+      #log {
+        position: absolute;
+        left: 240px;
+        top: 340px;
+        width: 1440px;
+        height: 400px;
+      }
+    </style>
+    <script src="vendor/rostrum.js"></script>
+    <script src="scene.js"></script>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="{{DURATION}}"
+      data-width="1920"
+      data-height="1080"
+      data-no-timeline
+    >
+      <div id="log"></div>
+      <audio
+        id="narration"
+        class="clip"
+        src="audio/narration.wav"
+        data-start="0"
+        data-track-index="1"
+        data-volume="1"
+      ></audio>
+    </div>
+    <script>
+      const scene = window.ROSTRUM_SCENE;
+      const render = Rostrum.mountLog(document.getElementById("log"), {
+        events: scene.events,
+        label: "log",
+        capacity: 6,
+      });
+      Rostrum.onSeek(render);
+    </script>
+  </body>
+</html>
