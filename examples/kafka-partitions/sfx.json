@@ -1,0 +1,13 @@
+{
+  "sounds": [
+    { "at": "b2:partitions", "sound": "riser", "align": "end", "gain": 0.12 },
+    { "at": "b2:partitions", "sound": "whoosh", "gain": 0.28 },
+    { "at": "b2:parallel", "sound": "pop", "gain": 0.22 },
+    { "at": "b2:parallel", "sound": "pop", "gain": 0.2, "shift": 0.28 },
+    { "at": "b2:parallel", "sound": "pop", "gain": 0.18, "shift": 0.56 },
+    { "at": "b3:c42", "sound": "ping", "gain": 0.16 },
+    { "at": "b4:order", "sound": "whoosh-short", "gain": 0.22 },
+    { "at": "b4:across", "sound": "whoosh-short", "gain": 0.22 },
+    { "at": "b5:one", "sound": "click-soft", "gain": 0.3 }
+  ]
+}
