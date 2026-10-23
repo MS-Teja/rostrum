@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Why Kafka is fast: style frames</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+        font-family: Inter, sans-serif;
+      }
+      .slide {
+        position: absolute;
+        inset: 0;
+      }
+      .slide img {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+      }
+      .slide svg {
+        position: absolute;
+        inset: 0;
+      }
+      .keynote,
+      .light-ink {
+        --text: #f2f4f7;
+        --muted: #8f99aa;
+        --accent: #6aa8ff;
+        --line: rgba(255, 255, 255, 0.42);
+        --dot: #ffffff;
+        --chip: rgba(10, 14, 22, 0.72);
+        --halo: 0 2px 14px rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.8);
+        --scrim: linear-gradient(180deg, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0) 34%);
+      }
+      .cutaway {
+        --text: #121418;
+        --muted: #535b6a;
+        --accent: #0a5cff;
+        --line: rgba(18, 20, 24, 0.45);
+        --dot: #121418;
+        --chip: rgba(255, 255, 255, 0.82);
+        --halo: 0 1px 10px rgba(255, 255, 255, 0.9);
+        --scrim: linear-gradient(180deg, rgba(232, 234, 238, 0.85), rgba(232, 234, 238, 0) 34%);
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        background: var(--scrim);
+      }
+      .label,
+      .eyebrow,
+      .title,
+      .space {
+        text-shadow: var(--halo);
+      }
+      .label {
+        position: absolute;
+        font-size: 32px;
+        font-weight: 600;
+        letter-spacing: -0.005em;
+        color: var(--text);
+        white-space: nowrap;
+      }
+      .label.accent {
+        color: var(--accent);
+      }
+      .label.muted {
+        color: var(--muted);
+      }
+      .copy {
+        position: absolute;
+        width: 46px;
+        height: 46px;
+        margin: -23px 0 0 -23px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        font-size: 28px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .eyebrow {
+        position: absolute;
+        left: 120px;
+        top: 96px;
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .title {
+        position: absolute;
+        left: 120px;
+        top: 140px;
+        font-size: 68px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+        color: var(--text);
+      }
+      .space {
+        position: absolute;
+        left: 120px;
+        font-size: 32px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+    </style>
+    <script src="plates/anchors.js"></script>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="6" data-width="1920" data-height="1080" data-no-timeline></div>
+    <script>
+      // dx, dy: where the label sits relative to its anchor; the leader runs from the anchor to there.
+      const SHOTS = {
+        1: {
+          eyebrow: "Inside a Kafka broker",
+          ink: { cutaway: "light-ink" },
+          labels: [
+            { a: "nic", text: "Network card", dx: -150, dy: -120 },
+            { a: "ssd", text: "SSD", dx: 170, dy: -110 },
+            { a: "ram", text: "RAM", dx: -190, dy: 110 },
+            { a: "cpu", text: "CPU", dx: 200, dy: 120 },
+          ],
+        },
+        3: {
+          eyebrow: "The usual path",
+          title: "4 copies, 2 system calls",
+          spaces: true,
+          labels: [
+            { a: "ssd", text: "SSD", dx: 0, dy: 110 },
+            { a: "page_cache", text: "Page cache", dx: -170, dy: 150 },
+            { a: "socket_buffer", text: "Socket buffer", dx: 170, dy: 150 },
+            { a: "nic", text: "Network card", dx: 0, dy: 125 },
+            { a: "kafka", text: "Kafka", dx: 150, dy: -40 },
+            { a: "syscall0", text: "system call", dx: -150, dy: -10, cls: "accent", noDot: true },
+            { a: "syscall1", text: "system call", dx: 150, dy: -10, cls: "accent", noDot: true },
+          ],
+          copies: [
+            { a: "page_cache", n: 1, dx: -62, dy: -44 },
+            { a: "user_buffer", n: 2, dx: -78, dy: -30 },
+            { a: "socket_buffer", n: 3, dx: 62, dy: -44 },
+            { a: "nic", n: 4, dx: -70, dy: -40 },
+          ],
+        },
+        4: {
+          eyebrow: "sendfile",
+          title: "Page cache → network card",
+          spaces: true,
+          labels: [
+            { a: "ssd", text: "SSD: not read", dx: 0, dy: 110, cls: "muted" },
+            { a: "page_cache", text: "Page cache", dx: -170, dy: 150 },
+            { a: "nic", text: "Network card", dx: 0, dy: 125 },
+            { a: "kafka", text: "Kafka's memory: skipped", dx: 150, dy: -40, cls: "muted" },
+          ],
+          copies: [{ a: "nic", n: 1, dx: -70, dy: -40 }],
+        },
+      };
+      const ORDER = [
+        ["keynote", 1],
+        ["keynote", 3],
+        ["keynote", 4],
+        ["cutaway", 1],
+        ["cutaway", 3],
+        ["cutaway", 4],
+      ];
+      const NS = "http://www.w3.org/2000/svg";
+      const root = document.getElementById("root");
+
+      ORDER.forEach(([look, shot], i) => {
+        const key = `${look}-${shot}`;
+        const spec = SHOTS[shot];
+        const at = window.ANCHORS[key];
+        const slide = document.createElement("div");
+        slide.className = `slide clip ${look}`;
+        const ink = spec.ink?.[look];
+        slide.id = `slide-${key}`;
+        slide.dataset.start = String(i);
+        slide.dataset.duration = "1";
+        slide.dataset.trackIndex = "0";
+        const img = document.createElement("img");
+        img.src = `plates/${key}.png`;
+        slide.append(img);
+        const svg = document.createElementNS(NS, "svg");
+        svg.setAttribute("width", "1920");
+        svg.setAttribute("height", "1080");
+        slide.append(svg);
+
+        // Labels over dark hardware on a light set take the dark set's light ink.
+        if (ink) svg.classList.add(ink);
+        if (spec.eyebrow || spec.title) slide.append(text("scrim", ""));
+        if (spec.eyebrow) slide.append(text("eyebrow", spec.eyebrow));
+        if (spec.title) slide.append(text("title", spec.title));
+        if (spec.spaces) {
+          // The pane sits at the boundary anchor's height: user space above, kernel below.
+          const y = at.boundary[1];
+          slide.append(text("space", "User space", { top: `${y - 70}px` }));
+          slide.append(text("space", "Kernel", { top: `${y + 26}px` }));
+        }
+        for (const l of spec.labels) {
+          const [x, y] = at[l.a];
+          const ex = x + l.dx;
+          const ey = y + l.dy;
+          if (!l.noDot) {
+            line(svg, x, y, ex, ey);
+            dot(svg, x, y);
+          }
+          const el = text(`label ${l.cls || ""} ${ink || ""}`, l.text);
+          place(el, ex, ey, l.dx, l.dy);
+          slide.append(el);
+        }
+        for (const c of spec.copies || []) {
+          const [x, y] = at[c.a];
+          slide.append(text("copy", String(c.n), { left: `${x + c.dx}px`, top: `${y + c.dy}px` }));
+        }
+        root.append(slide);
+      });
+
+      function text(cls, s, style = {}) {
+        const el = document.createElement("div");
+        el.className = cls;
+        el.textContent = s;
+        Object.assign(el.style, style);
+        return el;
+      }
+      // Put a label just past the end of its leader, on the side the leader points to.
+      function place(el, x, y, dx, dy) {
+        const gap = 12;
+        if (Math.abs(dx) > Math.abs(dy) * 1.5) {
+          el.style.top = `${y - 20}px`;
+          if (dx > 0) el.style.left = `${x + gap}px`;
+          else el.style.right = `${1920 - x + gap}px`;
+        } else {
+          el.style.left = `${x}px`;
+          el.style.transform = "translateX(-50%)";
+          el.style.top = dy > 0 ? `${y + gap}px` : `${y - 40 - gap}px`;
+        }
+      }
+      function line(svg, x1, y1, x2, y2) {
+        const l = document.createElementNS(NS, "line");
+        Object.entries({ x1, y1, x2, y2 }).forEach(([k, v]) => l.setAttribute(k, v));
+        l.setAttribute("style", "stroke: var(--line); stroke-width: 2");
+        svg.append(l);
+      }
+      function dot(svg, x, y) {
+        const c = document.createElementNS(NS, "circle");
+        c.setAttribute("cx", x);
+        c.setAttribute("cy", y);
+        c.setAttribute("r", 6);
+        c.setAttribute("style", "fill: var(--dot)");
+        svg.append(c);
+      }
+    </script>
+  </body>
+</html>

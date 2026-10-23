@@ -12,3 +12,6 @@ renders/
 *.wav
 dist/
 .hyperframes/
+__pycache__/
+*.blend
+*.blend1
