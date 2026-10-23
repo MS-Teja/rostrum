@@ -1,0 +1,21 @@
+{
+  "name": "rostrum",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node packages/primitives/build.mjs && node packages/director/build.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/primitives --noEmit && tsc -p packages/director --noEmit",
+    "rostrum": "node packages/director/dist/cli.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

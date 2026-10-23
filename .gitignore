@@ -10,3 +10,4 @@ renders/
 *.webm
 *.mov
 *.wav
+dist/

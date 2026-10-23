@@ -1,0 +1,13 @@
+{
+  "name": "@rostrum/director",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "rostrum": "./dist/cli.mjs"
+  },
+  "dependencies": {
+    "@rostrum/primitives": "workspace:*"
+  }
+}
