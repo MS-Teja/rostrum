@@ -4,6 +4,10 @@
  *
  *   Voice: af_heart · Speed: 1.0 · Pause between beats: 0.3 s
  *
+ * A person's voice is marked "(recorded)" and has no speed:
+ *
+ *   Voice: Teja (recorded) · Pause between beats: 0.4 s
+ *
  *   ## b1 · set up the problem
  *   Say: Think of a Kafka [topic] as a log.
  *   Show: one long log labelled with its topic.
@@ -21,6 +25,8 @@ export interface ScriptBeat {
 
 export interface Script {
   voice: string;
+  /** True when a person records the narration instead of a TTS voice. */
+  recorded: boolean;
   speed: number;
   /** Silence after each beat, in seconds. */
   pause: number;
@@ -28,8 +34,10 @@ export interface Script {
 }
 
 export function parseScript(markdown: string): Script {
-  const header = markdown.match(/^Voice:\s*(\S+)\s*·\s*Speed:\s*([\d.]+)\s*·\s*Pause between beats:\s*([\d.]+)\s*s/m);
+  const header = markdown.match(/^Voice:\s*(.+?)\s*·\s*(?:Speed:\s*([\d.]+)\s*·\s*)?Pause between beats:\s*([\d.]+)\s*s/m);
   if (!header) throw new Error('script.md needs a line like "Voice: af_heart · Speed: 1.0 · Pause between beats: 0.3 s"');
+  const recorded = /\(recorded\)\s*$/.test(header[1]!);
+  if (!recorded && header[2] === undefined) throw new Error("a TTS voice needs a Speed:, e.g. \"Speed: 1.0\"");
 
   const beats: ScriptBeat[] = [];
   for (const section of markdown.split(/^## /m).slice(1)) {
@@ -50,7 +58,7 @@ export function parseScript(markdown: string): Script {
     if (ids.has(b.id)) throw new Error(`Beat id "${b.id}" is used twice`);
     ids.add(b.id);
   }
-  return { voice: header[1]!, speed: Number(header[2]), pause: Number(header[3]), beats };
+  return { voice: header[1]!, recorded, speed: Number(header[2] ?? 1), pause: Number(header[3]), beats };
 }
 
 /** Fact IDs defined in facts.md: the first cell of each table row, e.g. "| F3 | …". */

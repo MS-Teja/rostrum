@@ -30,6 +30,10 @@ function check(): number {
 }
 
 function voice(): number {
+  if (script.recorded) {
+    console.error(`${script.voice} is a recorded voice: record the script and align it instead of synthesising it.`);
+    return 1;
+  }
   const here = import.meta.dirname;
   const python = process.env.ROSTRUM_PYTHON ?? process.env.HYPERFRAMES_PYTHON ?? "python3";
   const tool = resolve(here, "../../voice/kokoro_timed.py");

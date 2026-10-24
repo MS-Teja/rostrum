@@ -25,7 +25,13 @@ describe("parseScript", () => {
   const s = parseScript(md);
 
   it("reads the voice settings", () => {
-    expect(s).toMatchObject({ voice: "af_heart", speed: 1.05, pause: 0.3 });
+    expect(s).toMatchObject({ voice: "af_heart", recorded: false, speed: 1.05, pause: 0.3 });
+  });
+
+  it("reads a recorded voice, which has no speed", () => {
+    const rec = parseScript(md.replace("Voice: af_heart · Speed: 1.05 · Pause between beats: 0.3 s", "Voice: Teja (recorded) · Pause between beats: 0.4 s"));
+    expect(rec).toMatchObject({ voice: "Teja (recorded)", recorded: true, pause: 0.4 });
+    expect(() => parseScript(md.replace("Speed: 1.05 · ", ""))).toThrow(/Speed/);
   });
 
   it("reads each beat's lines and fact references", () => {
