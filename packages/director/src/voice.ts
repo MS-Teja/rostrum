@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseCues, resolveCues, type BeatAudio, type Cue, type Word } from "@rostrum/primitives";
+import { spellNumbers } from "./numbers";
 import type { Script } from "./script";
 
 export interface Narration {
@@ -113,7 +114,7 @@ export function align(dir: string, script: Script, opts: AlignOptions): Narratio
       const out = execFileSync(process.execPath, [opts.hyperframes, "transcribe", copy, "--json"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
       const { transcriptPath } = JSON.parse(out.trim().split("\n").at(-1)!) as { transcriptPath: string };
       const raw = JSON.parse(readFileSync(transcriptPath, "utf8")) as Array<{ text: string; start: number; end: number }>;
-      const words: Word[] = raw.map(({ text, start, end }) => ({ text, start, end }));
+      const words: Word[] = spellNumbers(raw.map(({ text, start, end }) => ({ text, start, end })));
       writeFileSync(join(dir, `audio/${beat.id}.words.json`), JSON.stringify(words, null, 1));
       const duration = Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file], { cwd: dir, encoding: "utf8" }));
       return { id: beat.id, file, duration, words };
