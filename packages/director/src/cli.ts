@@ -3,12 +3,13 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { checkFacts, parseFactIds, parseScript } from "./script";
-import { narrate } from "./voice";
+import { align, narrate, type Narration } from "./voice";
 
 const USAGE = `rostrum <command> <dir>
 
   check <dir>     Check script.md against facts.md
   voice <dir>     Speak script.md with word timings; write audio/ and timing.js
+  align <dir>     Time a recorded script (audio/<beat>.m4a|mp3|wav); write timing.js
   compose <dir>   Build index.html from src/index.html and timing.js`;
 
 const [command, target] = process.argv.slice(2);
@@ -31,19 +32,31 @@ function check(): number {
 
 function voice(): number {
   if (script.recorded) {
-    console.error(`${script.voice} is a recorded voice: record the script and align it instead of synthesising it.`);
+    console.error(`${script.voice} is a recorded voice: record each beat as audio/<beat>.m4a and run \`rostrum align\`.`);
     return 1;
   }
   const here = import.meta.dirname;
   const python = process.env.ROSTRUM_PYTHON ?? process.env.HYPERFRAMES_PYTHON ?? "python3";
   const tool = resolve(here, "../../voice/kokoro_timed.py");
-  const n = narrate(dir, script, { python, tool });
+  return report(narrate(dir, script, { python, tool }));
+}
 
+function alignRecording(): number {
+  const pkg = createRequire(import.meta.url).resolve("hyperframes/package.json");
+  const bin = resolve(dirname(pkg), (JSON.parse(readFileSync(pkg, "utf8")) as { bin: Record<string, string> }).bin.hyperframes!);
+  const n = align(dir, script, { hyperframes: bin });
+  if (n.missing.length) console.log(`Not recorded yet: ${n.missing.join(", ")}`);
+  return Math.max(report(n), n.missing.length ? 2 : 0);
+}
+
+/** Write timing.js and print the pace and every cue. */
+function report(n: Narration): number {
   const cues = Object.fromEntries(n.cues.map((c) => [c.key, Number(c.time.toFixed(3))]));
   const timing = { duration: Number(n.duration.toFixed(3)), beats: n.beats, cues };
   writeFileSync(join(dir, "timing.js"), `window.ROSTRUM_TIMING = ${JSON.stringify(timing, null, 1)};\n`);
 
-  const words = script.beats.reduce((s, b) => s + b.say.split(/\s+/).length, 0);
+  const spoken = new Set(n.beats.map((b) => b.id));
+  const words = script.beats.filter((b) => spoken.has(b.id)).reduce((s, b) => s + b.say.split(/\s+/).length, 0);
   console.log(`Narration ${n.duration.toFixed(2)} s · ${words} words · ${((words / n.duration) * 60).toFixed(0)} wpm`);
   for (const c of n.cues) console.log(`  ${c.key.padEnd(14)} ${c.time.toFixed(3)} s${c.estimated ? "  (estimated)" : ""}`);
   return n.cues.some((c) => c.estimated) ? 2 : 0;
@@ -99,7 +112,7 @@ function compose(): number {
   return 0;
 }
 
-const commands: Record<string, () => number> = { check, voice, compose };
+const commands: Record<string, () => number> = { check, voice, align: alignRecording, compose };
 const run = commands[command];
 if (!run) {
   console.error(USAGE);
