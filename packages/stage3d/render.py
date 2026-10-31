@@ -61,6 +61,8 @@ def main():
         "engine": a.engine,
         "fps": a.fps,
         "timing": timing.load(a.timing) if a.timing else None,
+        # The frames this run renders, so a long scene can bake only what it needs.
+        "frames": (a.still, a.still) if a.still is not None else tuple(int(x) for x in a.frames.split("-")),
     }
     t0 = time.time()
     mod.build(scene, opts)
