@@ -21,19 +21,34 @@ def anchor(name, loc, parent=None):
     return o
 
 
+def polyline(name, points, parent=None):
+    """A line through 3D points, for the overlay to draw as 2D ink registered to the scene:
+    each point is an anchor named "<name>#<i>", projected every frame like any other."""
+    return [anchor(f"{name}#{i}", p, parent) for i, p in enumerate(points)]
+
+
 def project(scene):
-    """{name: [x, y, visible]} in output pixels for the current frame."""
+    """{name: [x, y, visible]} in output pixels for the current frame. A polyline's points
+    are gathered under its name, in order: {name: [[x, y, visible], ...]}."""
     r = scene.render
     w = r.resolution_x * r.resolution_percentage / 100
     h = r.resolution_y * r.resolution_percentage / 100
     cam = scene.camera
-    out = {}
+    out, lines = {}, {}
     for o in scene.objects:
         if not o.name.startswith(PREFIX):
             continue
         v = world_to_camera_view(scene, cam, o.matrix_world.translation)
         visible = v.z > 0 and 0 <= v.x <= 1 and 0 <= v.y <= 1
-        out[o.name[len(PREFIX) :]] = [round(v.x * w, 2), round((1 - v.y) * h, 2), visible]
+        point = [round(v.x * w, 2), round((1 - v.y) * h, 2), visible]
+        name = o.name[len(PREFIX) :]
+        if "#" in name:
+            line, i = name.rsplit("#", 1)
+            lines.setdefault(line, []).append((int(i), point))
+        else:
+            out[name] = point
+    for line, points in lines.items():
+        out[line] = [p for _, p in sorted(points)]
     return out
 
 
