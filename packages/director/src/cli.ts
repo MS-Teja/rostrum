@@ -103,8 +103,13 @@ function compose(): number {
       inputs.push("-i", file);
       chains.push(`[${i}:a]aresample=48000,volume=${s.gain ?? 0.3},adelay=${ms}|${ms}[s${i}]`);
     });
-    const mix = `${chains.join(";")};${sounds.map((_, i) => `[s${i}]`).join("")}amix=inputs=${sounds.length}:normalize=0:duration=longest[out]`;
-    execFileSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", mix, "-map", "[out]", "-ac", "2", "audio/sfx.wav"], { cwd: dir });
+    if (sounds.length === 0) {
+      // No sounds (e.g. a one-beat preview without a cue): a silent track, so the page's <audio> still exists.
+      execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", "1", "audio/sfx.wav"], { cwd: dir });
+    } else {
+      const mix = `${chains.join(";")};${sounds.map((_, i) => `[s${i}]`).join("")}amix=inputs=${sounds.length}:normalize=0:duration=longest[out]`;
+      execFileSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", mix, "-map", "[out]", "-ac", "2", "audio/sfx.wav"], { cwd: dir });
+    }
     console.log(`sound effects: ${sounds.length} placed from ${library}`);
   }
 
