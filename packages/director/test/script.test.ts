@@ -65,4 +65,10 @@ describe("facts", () => {
   it("flags citations that don't exist", () => {
     expect(checkFacts(parseScript(md), parseFactIds(facts))).toEqual(["b1 cites F8, which isn't in facts.md"]);
   });
+
+  it("accepts any letter prefix, so each video can use its own", () => {
+    const voyager = md.replace("Facts: F2, F8", "Facts: V2, VG8");
+    expect([...parseFactIds("| V2 | a |\n| VG8 | b |\n")]).toEqual(["V2", "VG8"]);
+    expect(parseScript(voyager).beats[0]!.facts).toEqual(["V2", "VG8"]);
+  });
 });

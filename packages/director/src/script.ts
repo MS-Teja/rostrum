@@ -49,7 +49,7 @@ export function parseScript(markdown: string): Script {
     const facts = field("Facts")
       .split(",")
       .map((f) => f.trim())
-      .filter((f) => /^F\d+$/.test(f));
+      .filter((f) => /^[A-Z]+\d+$/.test(f));
     beats.push({ id, title, say, show: field("Show"), facts });
   }
 
@@ -61,9 +61,9 @@ export function parseScript(markdown: string): Script {
   return { voice: header[1]!, recorded, speed: Number(header[2] ?? 1), pause: Number(header[3]), beats };
 }
 
-/** Fact IDs defined in facts.md: the first cell of each table row, e.g. "| F3 | …". */
+/** Fact IDs defined in facts.md: the first cell of each table row, e.g. "| F3 | …" or "| V3 | …". */
 export function parseFactIds(markdown: string): Set<string> {
-  return new Set([...markdown.matchAll(/^\|\s*(F\d+)\s*\|/gm)].map((m) => m[1]!));
+  return new Set([...markdown.matchAll(/^\|\s*([A-Z]+\d+)\s*\|/gm)].map((m) => m[1]!));
 }
 
 /** Every fact a beat cites must exist in facts.md. */
