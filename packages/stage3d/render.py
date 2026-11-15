@@ -61,6 +61,8 @@ def main():
         "engine": a.engine,
         "fps": a.fps,
         "timing": timing.load(a.timing) if a.timing else None,
+        # Where timing.js lives, so a scene can find the files beside it (audio/, words).
+        "timing_file": os.path.abspath(a.timing) if a.timing else None,
         # The frames this run renders, so a long scene can bake only what it needs.
         "frames": (a.still, a.still) if a.still is not None else tuple(int(x) for x in a.frames.split("-")),
     }
