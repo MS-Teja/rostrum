@@ -181,7 +181,8 @@ ZOOM_THROUGH = 3.0  # log-scale/s: a planned zoom-through may run about one powe
 def voice_args(motion, times, profile=None):
     """(scale, speaking, zoom_scale) for flags() from a motion file: the voice's pace (channel
     "voice.pace"), whether a word is being spoken (channel "voice.speaking"), and the zoom limit's
-    lift during planned zoom-throughs (camera spans with "rule": "zoom-through")."""
+    lift during planned zoom-throughs and push-throughs (camera spans with that "rule"): passing
+    through scales, or through a surface, the picture's scale changes fast by design."""
     scale = speaking = None
     ch = getattr(motion, "channels", {})
     if "voice.pace" in ch:
@@ -189,9 +190,9 @@ def voice_args(motion, times, profile=None):
     if "voice.speaking" in ch:
         speaking = [ch["voice.speaking"](t) > 0.5 for t in times]
     zoom_scale = None
-    spans = [s for s in getattr(motion, "spans", []) or [] if s.get("rule") == "zoom-through"]
+    spans = [s for s in getattr(motion, "spans", []) or [] if s.get("rule") in ("zoom-through", "push-through")]
     if spans:
         base = (profile or {}).get("fast_zoom", DEFAULT["fast_zoom"])
         lift = max(1.0, ZOOM_THROUGH / base)
-        zoom_scale = [lift if any(s["t0"] <= t <= s["t1"] for s in spans) else 1.0 for t in times]
+        zoom_scale = [lift if any(s["t0"] - 0.3 <= t <= s["t1"] + 0.3 for s in spans) else 1.0 for t in times]  # and its settle
     return scale, speaking, zoom_scale

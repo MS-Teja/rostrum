@@ -129,6 +129,18 @@ class Rig:
         self.keys.append(k)
         return self
 
+    def place(self, t, look, at, **kw):
+        """A key by where the camera stands (`at`, a point) looking at `look`: for interiors, where
+        positions come first. Distance and bearing are worked out from them."""
+        piv = [0.0, 0.0, 0.0]
+        w = {look: 1.0} if isinstance(look, str) else look
+        tot = sum(w.values())
+        for name, wt in w.items():
+            s_ = _pt(self.subjects[name], t)
+            piv = [piv[i] + wt * s_[i] / tot for i in range(3)]
+        az, el, dist = bearing(K.sub(at, piv))
+        return self.key(t, look=look, dist=dist, az=az, el=el, **kw)
+
     def curves(self):
         """The journey as keyed curves, named as they're stored in a motion file."""
         ks = self.keys
@@ -213,7 +225,7 @@ class Rig:
         st = [self.state(t, ch) for t in ts]
         ks = self.keys
         spans = [dict({"lane": "camera", "t0": a["t"], "t1": b["t"], "label": b["label"]},
-                      **({"rule": "zoom-through"} if (b.get("intent") or {}).get("motive") == "zoom-through" else {}))
+                      **({"rule": (b.get("intent") or {}).get("motive")} if (b.get("intent") or {}).get("motive") in ("zoom-through", "push-through") else {}))
                  for a, b in zip(ks, ks[1:])]
         shots = [dict(k["intent"], t=k["t"]) for k in ks if k.get("intent")]
         return {"t": ts, "pos": [s[0] for s in st], "aim": [s[1] for s in st], "lens": [s[2] for s in st], "spans": spans, "channels": ch, "shots": shots}

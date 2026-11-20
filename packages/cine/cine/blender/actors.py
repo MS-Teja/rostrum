@@ -14,6 +14,8 @@ Blobs share one material; each blob's fade is its object colour, keyed per frame
 a filament), via its object colour.
 **appear**: scale from nothing to full with a small overshoot that settles (anticipation-free:
 a pop with follow-through).
+**pulse_along**: a glowing dot with a short tail travelling a path (a signal on a cable, data on
+a trace), eased in and out.
 """
 
 import math
@@ -162,3 +164,41 @@ def appear(obj, motion, t, overshoot=0.08, settle=0.4, grow=0.18):
 def fade_material(name, colour, strength, softness=2.0, opacity=1.0):
     """The material puff() and glow_pulse() use: emission scaled by the object's colour (red)."""
     return _fade_material(name, colour, strength, softness, opacity)
+
+
+def pulse_along(scene, motion, points, t0, t1, parent=None, px_size=0.035, tail=4, colour=(0.75, 0.9, 1.0), strength=12.0,
+                ease="profile:0.15:0.25", name="pulse"):
+    """A glowing dot travelling the polyline `points` from t0 to t1 (by length, eased), with a
+    short tail of smaller, dimmer dots behind it; invisible before and after."""
+    from ..core.curve import Curve
+    from ..core.path import Path
+
+    path = Path(points)
+    prog = Curve(keys=[(t0, 0.0), (t1, 1.0)], interp="eased", ease=ease)
+    mat = _fade_material(name + ".glow", colour, strength, softness=1.2)
+    objs = []
+    for k in range(tail + 1):
+        lag = 0.035 * k
+        r = px_size * (1 - 0.18 * k)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=1.0, segments=16, ring_count=8, location=(0, 0, 0))
+        o = bpy.context.active_object
+        o.name = f"{name}.{k}"
+        o.data.materials.append(mat)
+        o.visible_shadow = False
+        if parent is not None:
+            o.parent = parent
+        frames = bake.frames(motion)
+        live = [(f, t) for f, t in frames if t0 - 0.1 <= t - lag <= t1 + 0.1]
+        keyed = [frames[0]] + live + [frames[-1]] if live else []
+        for f, t in keyed:
+            tt = t - lag
+            on = t0 <= tt <= t1
+            o.location = Vector(path(min(1.0, max(0.0, prog(tt)))))
+            o.scale = (r if on else 1e-4,) * 3
+            o.color = ((1 - 0.2 * k) if on else 0.0, 0, 0, 1)
+            o.keyframe_insert("location", frame=f)
+            o.keyframe_insert("scale", frame=f)
+            o.keyframe_insert("color", frame=f)
+        bake._linear(o)
+        objs.append(o)
+    return objs

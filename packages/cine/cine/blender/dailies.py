@@ -152,6 +152,7 @@ def render(scene, motion, times, out_dir, subject, other=(), hide=(), res=(640, 
         if all(p_.get("look") == "diagram" for p_ in (motion.shots or [])) and motion.shots:
             s["planned_look"] = "diagram"
         s["look_flags"] = LK.flags(s["look"], s["planned_look"])
-        if s["occluded"] is not None and s["occluded"] > 0.15:
+        transit = any(sp.get("rule") in ("push-through", "zoom-through") and sp["t0"] <= s["t"] <= sp["t1"] for sp in (motion.spans or []))
+        if s["occluded"] is not None and s["occluded"] > 0.15 and not transit:  # passing through something hides things by design
             s["look_flags"].append(("occluded", f"{s['occluded']:.0%} of {s['subject']} blocked by something in front"))
     return shots

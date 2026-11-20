@@ -16,6 +16,7 @@ look at (the subject's size changing under 25% a second, at least 90% of the aim
 the aim not changing hands within 0.5 s) and only if they last 0.4 s or more:
   edge      the beat's subject grazes the frame edge: touching or barely cut (cut 0-20%)
   clutter   a context shape nearer than the subject covers more than a quarter of the frame
+            (unless it's marked "frame": True, a planned dark foreground frame, like a corridor's walls)
   dominant  another shape takes the frame over from the subject: it covers over 35% of the
             frame and more than twice the subject's share (a "close-up" of a part that is
             really a shot of the whole machine). A part shown medium or closer is exempt from
@@ -24,7 +25,8 @@ the aim not changing hands within 0.5 s) and only if they last 0.4 s or more:
   cramped   a medium or close subject with under 2% headroom
   size      at a key, the subject's size is outside the size its shot plan asked for
   near      the camera is inside a solid shape's extent (its bounding box, grown 5%); drawn,
-            hollow shapes (a ring, a region) are marked "solid": False
+            hollow shapes (a ring, a region) are marked "solid": False, and a shape the camera
+            means to enter (a push-through) carries "enter_after": the time it goes in
   drift     (off by default; rules={"drift": True}) the camera moves for 2 s or more without
             changing the frame. Slow, steady movement under the voice is a good choice; the
             motion checks flag what's actually aimless (qa: wander, fidget)
@@ -249,7 +251,9 @@ def flags(motion, meas=None, rules=None):
         s = subj[i]
         for name, ms in meas.items():
             m = ms[i]
-            if m.get("near") and motion.shapes[name].get("solid", True):
+            sh = motion.shapes[name]
+            entered = sh.get("enter_after") is not None and t >= sh["enter_after"]  # a planned push-through
+            if m.get("near") and sh.get("solid", True) and not entered:
                 out.append(("near", t, f"the camera is inside {name}'s extent"))
         if s not in meas or not held[i]:
             continue
@@ -269,7 +273,7 @@ def flags(motion, meas=None, rules=None):
                 continue
             if _contains(motion, s, name, t):
                 continue  # a part of the subject itself isn't clutter in front of it
-            if c["depth"] < m["depth"] and c["cover"] > r["clutter"]:
+            if c["depth"] < m["depth"] and c["cover"] > r["clutter"] and not motion.shapes[name].get("frame"):
                 out.append(("clutter", t, f"{name} (nearer than {s}) covers {c['cover']:.0%} of the frame"))
         for name, ms in meas.items():
             c = ms[i]
@@ -277,6 +281,8 @@ def flags(motion, meas=None, rules=None):
                 continue
             if m["size"] >= 0.55 and _contains(motion, name, s, t):
                 continue  # a part shown medium or closer: the machine round it is its ground, not a rival
+            if motion.shapes[name].get("frame"):
+                continue  # a planned foreground frame (a corridor's walls) frames the subject, it doesn't rival it
             if c["cover"] > r["dominant"] and c["cover"] > r["dominant_ratio"] * m["cover"]:
                 out.append(("dominant", t, f"{name} covers {c['cover']:.0%} of the frame; the subject {s} only {m['cover']:.0%}"))
     if r.get("drift"):  # off by default: slow, steady movement under the voice is fine (qa flags wander and fidget)
