@@ -8,6 +8,7 @@ Status: in progress. Built so far:
 - the camera rig
 - the Blender layer: baking curves into keyframes, and an EEVEE preview with motion blur and bloom
 - calibration on real footage, and the film profile
+- the crew: four craft guides, shots set up from intent, composition and exposure checks, and the dailies
 
 ## The idea
 
@@ -60,6 +61,32 @@ Jerk and the stop-start shape keep cine's defaults: measured from footage, they 
 
 `--check render.mp4` reads a render the same way. It's for footage and textured scenes: on a sparse star field, the block fit misreads zoom. For a cine scene, the curve-based QA is the truth, since it knows the camera exactly.
 
+## The crew
+
+The jobs of a film crew, folded into four roles as on a small production. Each has a written guide in `crew/`, with the craft as numbers where it can, plus tools and automatic checks:
+
+| Role | Guide | Tools and checks |
+|---|---|---|
+| Director (folds in editor, continuity) | `crew/director.md`: the brief, pacing, transitions, continuity, the standing rules | the brief in the motion file; moves against words |
+| Cinematographer | `crew/cinematographer.md`: shot sizes, angles, lenses, motives, composition, the 180° line | `camera/shot.py` sets up a shot from intent; `core/compose.py` checks size, edges, dominance, lead room and headroom on held frames |
+| Look (folds in gaffer, production designer, colorist) | `crew/look.md`: motivated light, exposure targets, real assets, the grade | `blender/look.py` (lights, starfield, plume, bloom); `core/look.py` checks exposure, contrast, crush and form per still, by the shot's planned look |
+| Animator | `crew/animator.md`: the principles applied to objects, one dominant motion, truth in motion | actor curves on the sheet |
+
+**Dailies:** `cine.dailies` renders a scene's key poses and the midpoints between them in about 15 s. It packs:
+- a contact sheet with overlays
+- every check's report
+- the brief and the shot plan
+- the sheet and the map
+
+**The reviewer:** one independent, read-only agent reviews the pack against the four guides before anyone else sees it. Every note is answered in the scene's notes, fixed or declined with a reason.
+
+```python
+from cine.camera.shot import Framer
+F = Framer(rig, {"voyager": voyager_points, "thrusters": cluster_points}, facing={"voyager": dish_axis})
+F.shot(0.0, "voyager", "medium wide", angle=-10, side="left third", lens=30, az=110, motive="establish")
+F.shot(9.4, "thrusters", 0.8, angle=20, side="centre", lens=50, az=74, motive="emphasise", look="low-key")
+```
+
 ## The camera
 
 A scene's camera journey is a handful of poses at times, and the camera travels through them on minimum-jerk curves: the path a skilled hand takes through via points.
@@ -81,8 +108,12 @@ cam = rig.sample(0, 20)
 Anything left out carries over from the key before. So the vocabulary of moves (push in, pull back, orbit, crane, rack the lens, hand the aim to a new subject) is just keys.
 
 **How the curves are built:**
-- **Bearing and log-distance** use the minimum-jerk spline. It's continuous to the fourth derivative, and at rest only at the ends or at a key marked `stop`.
-- **Lens, look weights and screen offsets** use monotone quintics. A zoom never overshoots, and the aim never swings past a subject.
+- **Bearing** uses the minimum-jerk spline. It's continuous to the fourth derivative, and at rest only at the ends or at a key marked `stop`.
+- **Distance, lens, look weights and screen offsets** use monotone quintics:
+  - a framing never overshoots its key: a push arrives instead of sailing past and back;
+  - a move from rest to rest glides like a dolly grip's (ease in, cruise, ease out);
+  - the aim never swings past a subject.
+- **A key's `handover`** sets when the aim changes subject.
 
 The keys are stored as curves in the motion file, and the sheet draws them as an animator's graph editor does, with a diamond at each key.
 
@@ -96,6 +127,12 @@ The keys are stored as curves in the motion file, and the sheet draws them as an
 | `cine/core/curve.py` | `Curve` and `Motion`, the motion file. A curve is keys (minimum-jerk, monotone, spline, eased, linear or hold interpolation) or per-frame samples |
 | `cine/core/path.py` | Centripetal Catmull-Rom paths with arc length, and zero-phase smoothing |
 | `cine/camera/rig.py` | The camera rig: keyed poses, minimum-jerk travel, exact screen composition, two-subject framing |
+| `cine/camera/shot.py` | Shots set up from intent (size, angle, side, lens, view), solved against the subject's real shape |
+| `cine/core/shape.py`, `compose.py` | Subject shapes, and composition measured and checked every frame |
+| `cine/core/look.py` | Exposure checks by planned look |
+| `cine/blender/hull.py` | Exports subject shapes from real meshes |
+| `cine/blender/dailies.py`, `cine/dailies.py` | Key-pose stills, masks, look measures, occlusion, and the dailies pack |
+| `crew/` | The four craft guides |
 | `cine/blender/bake.py` | Bakes a motion file into Blender: a camera and any property, keyed every frame |
 | `cine/blender/look.py` | The preview look: EEVEE with motion blur, AgX colour, compositor bloom, a lighting rig from the true light source, emissive and plume materials |
 | `cine/core/kinematics.py` | What a viewer sees: sweep, zoom and roll rates, with acceleration and jerk |
