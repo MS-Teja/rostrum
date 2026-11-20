@@ -445,3 +445,36 @@ print(json.dumps([a, b, zs[0]]))`);
     expect(lift).toBeCloseTo(3.0 / 0.6, 6);
   });
 });
+
+describe("transitions", () => {
+  it("joins clips overlapping by each transition, video and audio, and checks a match cut", () => {
+    const got = py(`
+import json, os, subprocess, tempfile
+from cine import transition as T
+d = tempfile.mkdtemp()
+def clip(name, colour, secs):
+    p = os.path.join(d, name)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"color={colour}:s=64x36:d={secs}:r=30",
+                    "-f", "lavfi", "-i", f"sine=frequency=440:duration={secs}", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", p], check=True)
+    return p
+a, b, c = clip("a.mp4", "black", 2), clip("b.mp4", "white", 2), clip("c.mp4", "gray", 2)
+out, length = T.join([(a, None), (b, T.dissolve(0.5)), (c, T.light(0.6, centre=(0.3, 0.5)))], os.path.join(d, "out.mp4"))
+real = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out], capture_output=True, text=True).stdout)
+from cine.core.curve import Curve, Motion
+from cine.core import shape as S
+def scene(cam_y):
+    m = Motion("m", 0, 1, 30)
+    m.channels = {"cam.pos": Curve(keys=[(0, [0, cam_y, 0]), (1, [0, cam_y, 0])], interp="linear"),
+                  "cam.aim": Curve(keys=[(0, [0, 0, 0]), (1, [0, 0, 0])], interp="linear"),
+                  "cam.lens": Curve(keys=[(0, 35.0), (1, 35.0)], interp="linear")}
+    m.shapes = {"box": {"points": S.box([-1] * 3, [1] * 3)}}
+    return m
+same, _ = T.match(scene(-10), 1.0, "box", scene(-10.2), 0.0, "box")
+off, _ = T.match(scene(-10), 1.0, "box", scene(-16), 0.0, "box")
+print(json.dumps({"length": length, "real": real, "same": same, "off": off}))`);
+    expect(got.length).toBeCloseTo(2 + 2 - 0.5 + 2 - 0.6, 3);
+    expect(Math.abs(got.real - got.length)).toBeLessThan(0.1);
+    expect(got.same).toBe(true);
+    expect(got.off).toBe(false);
+  });
+});
