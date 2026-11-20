@@ -27,6 +27,19 @@ def frame_of(motion, t):
     return int(round((t - motion.t0) * motion.fps)) + 1
 
 
+def _colour_keys(obj):
+    """`obj`'s keyed object-colour curves. Actors (pulses, puffs, status lights) key their
+    brightness on the object colour, and the masks are drawn in flat object colours, so these are
+    muted while masks render: otherwise a glowing pulse replays its key, turns red and is counted as
+    the subject."""
+    ad = getattr(obj, "animation_data", None)
+    if not ad or not ad.action:
+        return []
+    curves = [fc for layer in getattr(ad.action, "layers", []) or [] for strip in layer.strips for bag in strip.channelbags for fc in bag.fcurves]
+    curves += list(getattr(ad.action, "fcurves", []) or [])
+    return [fc for fc in curves if fc.data_path == "color"]
+
+
 def _pixels(path):
     img = bpy.data.images.load(path, check_existing=False)
     img.colorspace_settings.name = "Non-Color"
@@ -114,6 +127,9 @@ def render(scene, motion, times, out_dir, subject, other=(), hide=(), res=(640, 
              "look": scene.view_settings.look, "world": tuple(scene.world.color) if scene.world else None}
     colours = {o.name: tuple(o.color) for o in bpy.data.objects}
     hidden = {o.name: o.hide_render for o in bpy.data.objects}
+    muted = [fc for o in bpy.data.objects for fc in _colour_keys(o) if not fc.mute]
+    for fc in muted:
+        fc.mute = True
     r.engine = "BLENDER_WORKBENCH"
     r.use_motion_blur = False
     r.use_compositing = False
@@ -140,6 +156,8 @@ def render(scene, motion, times, out_dir, subject, other=(), hide=(), res=(640, 
     scene.view_settings.view_transform, scene.view_settings.look = state["view"], state["look"]
     if state["world"] is not None:
         scene.world.color = state["world"]
+    for fc in muted:
+        fc.mute = False
     for o in bpy.data.objects:
         if o.name in colours:
             o.color = colours[o.name]
