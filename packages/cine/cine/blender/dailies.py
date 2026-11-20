@@ -82,26 +82,57 @@ def occlusion(scene, motion, t, subject, ignore=()):
     lo = [min(p[k] for p in pts) for k in range(3)]
     hi = [max(p[k] for p in pts) for k in range(3)]
     pad = [0.1 * (hi[k] - lo[k]) + 0.02 for k in range(3)]
+    lo, hi = [lo[k] - pad[k] for k in range(3)], [hi[k] + pad[k] for k in range(3)]
     cam = list(motion.channels[motion.camera["pos"]](t))
     dg = bpy.context.evaluated_depsgraph_get()
-    blocked = 0
-    for p in pts:
-        o, d = Vector(cam), Vector(p) - Vector(cam)
-        dist = d.length
-        d.normalize()
-        travelled = 0.0
-        for _ in range(6):
-            hit, loc, _n, _i, obj, _m = scene.ray_cast(dg, o, d, distance=dist - travelled - 0.02)
-            if not hit:
-                break
-            if obj and any(obj.name.startswith(x) for x in ignore):
-                step = (loc - o).length + 1e-3
-                o, travelled = loc + d * 1e-3, travelled + step
-                continue
-            if not all(lo[k] - pad[k] <= loc[k] <= hi[k] + pad[k] for k in range(3)):
-                blocked += 1
-            break
-    return blocked / max(1, len(pts))
+    return sum(_blocked(scene, dg, cam, p, lo, hi, ignore) for p in pts) / max(1, len(pts))
+
+
+def _blocked(scene, dg, cam, p, lo, hi, ignore=()):
+    """Whether something outside the box lo..hi stands on the line from the camera to point p.
+    Objects named with an `ignore` prefix, and objects that don't render, are looked through."""
+    o, d = Vector(cam), Vector(p) - Vector(cam)
+    dist = d.length
+    d.normalize()
+    travelled = 0.0
+    for _ in range(8):
+        hit, loc, _n, _i, obj, _m = scene.ray_cast(dg, o, d, distance=dist - travelled - 0.02)
+        if not hit:
+            return False
+        if obj and (obj.hide_render or any(obj.name.startswith(x) for x in ignore)):
+            step = (loc - o).length + 1e-3
+            o, travelled = loc + d * 1e-3, travelled + step
+            continue
+        return not all(lo[k] <= loc[k] <= hi[k] for k in range(3))
+    return False
+
+
+def hidden(scene, motion, step=0.1, max_hidden=0.3, ignore=()):
+    """Actor flags that need the scene's geometry: for each actor in `motion.actors`, the share of
+    its life during which something solid stands between it and the camera (its track ray-tested
+    every `step` seconds). Flags "hidden" over `max_hidden`. The actor's own objects (named
+    "<actor>." as the presets name them, a tail dot behind the head included) are looked through.
+    Returns [(kind, t0, message, t1)] for dailies.pack(hidden=...)."""
+    out = []
+    keep = scene.frame_current
+    every = max(1, int(round(step * motion.fps)))
+    for name, a in sorted((getattr(motion, "actors", None) or {}).items()):
+        rows = [r for r in a["track"] if motion.t0 <= r[0] <= motion.t1][::every]
+        if not rows:
+            continue
+        pad = a["size"] + 0.02
+        hits = []
+        for t, x, y, z in rows:
+            scene.frame_set(frame_of(motion, t))
+            dg = bpy.context.evaluated_depsgraph_get()
+            cam = list(motion.channels[motion.camera["pos"]](t))
+            p = (x, y, z)
+            if _blocked(scene, dg, cam, p, [c - pad for c in p], [c + pad for c in p], tuple(ignore) + (name + ".",)):
+                hits.append(t)
+        if len(hits) > max_hidden * len(rows):
+            out.append(("hidden", hits[0], f"{name} is hidden behind something for {len(hits) / len(rows):.0%} of its life", rows[-1][0]))
+    scene.frame_set(keep)
+    return out
 
 
 def render(scene, motion, times, out_dir, subject, other=(), hide=(), res=(640, 360), samples=8, ignore=()):

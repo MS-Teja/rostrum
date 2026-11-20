@@ -446,16 +446,46 @@ print(json.dumps([a, b, zs[0]]))`);
   });
 });
 
+describe("actor visibility", () => {
+  it("flags an actor out of frame, behind the camera, out at its word, or too small; passes a visible one", () => {
+    const got = py(`
+import json
+from cine.core import actors as A
+from cine.core import path as P
+from cine.core.curve import Curve, Motion
+m = Motion("m", 0, 2, 30)
+m.channels = {"cam.pos": Curve(keys=[(0, [0, -10, 0]), (2, [0, -10, 0])], interp="linear"),
+              "cam.aim": Curve(keys=[(0, [0, 0, 0]), (2, [0, 0, 0])], interp="linear"),
+              "cam.lens": Curve(keys=[(0, 35.0), (2, 35.0)], interp="linear")}
+m.actors = {
+    "seen": A.actor(P.track([(-1, 0, 0), (1, 0, 0)], 0.0, 2.0), size=0.1, word=1.0),
+    "leaves": A.actor(P.track([(0, 0, 0), (40, 0, 0)], 0.0, 2.0), size=0.1),
+    "behind": A.actor(P.track([(0, -20, 0), (1, -20, 0)], 0.0, 2.0), size=0.1),
+    "late": A.actor(P.track([(0, 0, 0), (0.5, 0, 0), (30, 0, 0)], 0.0, 2.0), size=0.1, word=1.9),
+    "speck": A.actor(P.track([(0, 0, 0), (0.1, 0, 0)], 0.0, 2.0), size=0.002),
+}
+print(json.dumps([[f[0], f[2]] for f in A.flags(m)]))`);
+    const by = (name: string) => got.filter(([, msg]: string[]) => msg.startsWith(name + " ")).map(([k]: string[]) => k);
+    expect(by("seen")).toEqual([]);
+    expect(by("leaves")).toEqual(["unseen"]);
+    expect(by("behind")).toEqual(["unseen"]);
+    expect(by("late")).toEqual(["unseen"]);
+    expect(got.find(([, msg]: string[]) => msg.startsWith("late "))[1]).toMatch(/out at its word/);
+    expect(by("speck")).toEqual(["tiny"]);
+  });
+});
+
 describe("transitions", () => {
   it("joins clips overlapping by each transition, video and audio, and checks a match cut", () => {
     const got = py(`
 import json, os, subprocess, tempfile
 from cine import transition as T
 d = tempfile.mkdtemp()
-def clip(name, colour, secs):
+def clip(name, colour, secs, a0=0.7, a1=1.3):  # a tone from a0 to a1 only: silent handles either side
     p = os.path.join(d, name)
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"color={colour}:s=64x36:d={secs}:r=30",
-                    "-f", "lavfi", "-i", f"sine=frequency=440:duration={secs}", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", p], check=True)
+                    "-f", "lavfi", "-i", f"sine=frequency=440:duration={secs}", "-af", f"volume='between(t,{a0},{a1})':eval=frame",
+                    "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", p], check=True)
     return p
 a, b, c = clip("a.mp4", "black", 2), clip("b.mp4", "white", 2), clip("c.mp4", "gray", 2)
 out, length = T.join([(a, None), (b, T.dissolve(0.5)), (c, T.light(0.6, centre=(0.3, 0.5)))], os.path.join(d, "out.mp4"))
@@ -476,5 +506,53 @@ print(json.dumps({"length": length, "real": real, "same": same, "off": off}))`);
     expect(Math.abs(got.real - got.length)).toBeLessThan(0.1);
     expect(got.same).toBe(true);
     expect(got.off).toBe(false);
+  });
+
+  it("refuses voice under a transition; lays each clip's audio at its start at full level, never crossfaded", () => {
+    const got = py(`
+import json, os, subprocess, tempfile
+from cine import transition as T
+d = tempfile.mkdtemp()
+def clip(name, a0, a1, secs=2):
+    p = os.path.join(d, name)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"color=gray:s=64x36:d={secs}:r=30",
+                    "-f", "lavfi", "-i", f"sine=frequency=440:duration={secs}", "-af", f"volume='between(t,{a0},{a1})':eval=frame",
+                    "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", p], check=True)
+    return p
+talky = clip("talky.mp4", 0.5, 2.0)      # speaks to its last frame
+early = clip("early.mp4", 0.05, 0.35)    # speaks from its first frame
+quiet = clip("quiet.mp4", 0.7, 1.3)
+try:
+    T.join([(talky, None), (quiet, T.dissolve(0.5))], os.path.join(d, "x.mp4"))
+    refused = ""
+except ValueError as e:
+    refused = str(e)
+problems = T.check_handles([(quiet, None), (early, T.dissolve(0.5))])
+# forced through: the early clip's voice, under the overlap, still plays at full level
+out, _ = T.join([(quiet, None), (early, T.dissolve(0.5))], os.path.join(d, "forced.mp4"), force=True)
+alone = T.level_db(early, 0.1, 0.2)
+joined = T.level_db(out, 1.5 + 0.1, 0.2)
+print(json.dumps({"refused": refused, "problems": problems, "alone": alone, "joined": joined}))`);
+    expect(got.refused).toMatch(/voice inside the dissolve/);
+    expect(got.refused).toMatch(/last 0\.50 s of talky\.mp4/);
+    expect(got.problems.length).toBe(1);
+    expect(got.problems[0]).toMatch(/first 0\.50 s of early\.mp4/);
+    expect(Math.abs(got.joined - got.alone)).toBeLessThan(1.0);
+  });
+
+  it("muxes a scene's frames with its take placed at the in-handle", () => {
+    const got = py(`
+import json, os, subprocess, tempfile
+from cine import transition as T
+d = tempfile.mkdtemp()
+subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=gray:s=64x36:d=1.0:r=30", os.path.join(d, "f_%04d.png")], check=True)
+take = os.path.join(d, "take.wav")
+subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.4", take], check=True)
+out = T.mux(os.path.join(d, "f_%04d.png"), 30, 1, take, os.path.join(d, "s.mp4"), offset=0.4)
+print(json.dumps({"before": T.level_db(out, 0.0, 0.33), "after": T.level_db(out, 0.45, 0.3), "length": T._duration(out)}))`);
+    expect(got.before).toBeLessThan(-60);
+    expect(got.after).toBeGreaterThan(-30);
+    expect(got.length).toBeGreaterThan(0.95);
+    expect(got.length).toBeLessThan(1.1);
   });
 });

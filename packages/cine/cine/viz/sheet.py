@@ -16,6 +16,7 @@ import html
 import math
 import os
 
+from ..core import actors as A
 from ..core import compose as C
 from ..core import kinematics as K
 from ..core import qa as Q
@@ -307,6 +308,8 @@ class Sheet:
         if getattr(m, "shapes", None):
             self.comp = C.measure(m, self.ts)
             self.fl = sorted(self.fl + C.flags(m, self.comp), key=lambda f: f[1])
+        if getattr(m, "actors", None):  # can each actor be seen (in frame, big enough)?
+            self.fl = sorted(self.fl + A.flags(m), key=lambda f: f[1])
         # camera travel: distance along the path, normalised per stretch
         travel, acc = [0.0], 0.0
         for i in range(1, len(pos)):

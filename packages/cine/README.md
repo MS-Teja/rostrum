@@ -65,14 +65,16 @@ Jerk and the stop-start shape keep cine's defaults: measured from footage, they 
 
 ## The crew
 
-The jobs of a film crew, folded into four roles as on a small production. Each has a written guide in `crew/`, with the craft as numbers where it can, plus tools and automatic checks:
+The jobs of a film crew, folded into four roles as on a small production. Each has a written guide in `crew/`, with the craft as numbers where it can, plus tools and automatic checks.
+
+**Building a scene follows `crew/build.md`:** eight gates in order (paper, references, hero proof, set and light, blocking, actors, dailies, render). Each leaves evidence in the scene's `notes.md`, and the owner approves three of them: the paper plan, the look and the final render. New scenes start from `templates/scene.py` and `templates/notes.md`.
 
 | Role | Guide | Tools and checks |
 |---|---|---|
 | Director (folds in editor, continuity) | `crew/director.md`: the brief, pacing, transitions, continuity, the standing rules | the brief in the motion file; moves against words |
 | Cinematographer | `crew/cinematographer.md`: shot sizes, angles, lenses, motives, composition, the 180° line | `camera/shot.py` sets up a shot from intent; `core/compose.py` checks size, edges, dominance, lead room and headroom on held frames |
 | Look (folds in gaffer, production designer, colorist) | `crew/look.md`: motivated light, exposure targets, real assets, the grade | `blender/look.py` (lights, starfield, plume, bloom); `core/look.py` checks exposure, contrast, crush and form per still, by the shot's planned look |
-| Animator | `crew/animator.md`: the principles applied to objects, one dominant motion, truth in motion | actor curves on the sheet |
+| Animator | `crew/animator.md`: the principles applied to objects, one dominant motion, truth in motion | `blender/actors.py` presets (gas puffs, glows, pulses); `core/actors.py` flags an actor out of frame or too small, and the dailies flag one hidden behind something |
 
 **Dailies:** `cine.dailies` renders a scene's key poses and the midpoints between them in about 15 s. It packs:
 - a contact sheet with overlays
@@ -146,7 +148,10 @@ The keys are stored as curves in the motion file, and the sheet draws them as an
 |---|---|
 | `cine/core/ease.py` | Easing: minimum-jerk, S-curve, springs, CSS cubic-bezier |
 | `cine/core/curve.py` | `Curve` and `Motion`, the motion file. A curve is keys (minimum-jerk, monotone, spline, eased, linear or hold interpolation) or per-frame samples |
-| `cine/core/path.py` | Centripetal Catmull-Rom paths with arc length, and zero-phase smoothing |
+| `cine/core/path.py` | Centripetal Catmull-Rom paths with arc length, zero-phase smoothing, and actor tracks (`along`, `track`) |
+| `cine/core/actors.py` | Actor visibility: out of frame, too small (the dailies add hidden) |
+| `cine/blender/actors.py` | Actor presets: gas puffs, glows, appear, pulses along a path |
+| `cine/transition.py` | Transitions between scenes, the join (audio laid out, never crossfaded; refuses voice under a transition), and `mux` (frames plus a take at its in-handle) |
 | `cine/camera/rig.py` | The camera rig: keyed poses, minimum-jerk travel, exact screen composition, two-subject framing |
 | `cine/camera/shot.py` | Shots set up from intent (size, angle, side, lens, view), solved against the subject's real shape |
 | `cine/core/shape.py`, `compose.py` | Subject shapes, and composition measured and checked every frame |
@@ -155,7 +160,8 @@ The keys are stored as curves in the motion file, and the sheet draws them as an
 | `cine/blender/hull.py` | Exports subject shapes from real meshes |
 | `cine/blender/scale.py` | The scale stage: float-safe scenes across orders of magnitude, constant-width lines, dots and labels |
 | `cine/blender/dailies.py`, `cine/dailies.py` | Key-pose stills, masks, look measures, occlusion, and the dailies pack |
-| `crew/` | The four craft guides |
+| `crew/` | How to build a scene (`build.md`), and the four craft guides |
+| `templates/` | A new scene's starting files: `scene.py` and `notes.md` |
 | `cine/blender/bake.py` | Bakes a motion file into Blender: a camera and any property, keyed every frame |
 | `cine/blender/look.py` | The preview look: EEVEE with motion blur, AgX colour, compositor bloom, a lighting rig from the true light source, emissive and plume materials |
 | `cine/core/kinematics.py` | What a viewer sees: sweep, zoom and roll rates, with acceleration and jerk |

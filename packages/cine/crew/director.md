@@ -54,6 +54,8 @@ Choose one per boundary and write it in both scenes' briefs:
 | light wipe | A change driven by light (the Sun, a signal) | A bright element crosses the frame and reveals the next scene |
 | matched dissolve | Change of time at the same place | 0.5 s dissolve with the composition matched |
 
+**The voice is never under a transition.** A transition overlaps the end of one scene with the start of the next, so each scene keeps handles: silent picture before its first word and after its last, each at least its transition's length plus a 0.25 s breath. Load the take with `Voice.load(..., offset=handle_in)` (every word-keyed move shifts with it), end at `T1 = voice end + handle_out`, and render with `transition.mux(..., offset=handle_in)`. `transition.join` lays each scene's audio at its own start, never crossfades it, and refuses to join when an overlap holds voice. The reel's first cut had no handles: every first and last word was faded out.
+
 ## 5. Continuity
 
 - **Screen direction and the 180° line** hold across scenes (see the cinematographer guide).
@@ -71,13 +73,7 @@ Choose one per boundary and write it in both scenes' briefs:
 
 ## 7. The production loop
 
-1. **Brief** (director).
-2. **Shot plan** (cinematographer), then keys with `shot()`.
-3. **Set and assets** (look), then **light** (look), then **actor motion** (animator).
-4. **Dailies:** `python3 -m cine.dailies` renders the key poses, with automatic checks.
-5. **Review:** the reviewer agent reads the dailies against the four guides. Answer every note in the scene's `notes.md`: fixed, or declined with the reason.
-6. **Preview render**, then the motion sheet and frame checks.
-7. **Teja.**
+The order of work, and the evidence each step leaves, is its own guide: **[build.md](build.md)**, how to build a scene. Its eight gates run from the paper plan to the final render, and Teja approves three of them (paper, look, final).
 
 ## 8. Checklist (what review looks for)
 

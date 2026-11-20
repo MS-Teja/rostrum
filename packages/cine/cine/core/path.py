@@ -5,6 +5,9 @@
                         it, so speed follows the move's ease, not the spacing of the points
     smooth(values, s)   zero-phase Gaussian smoothing (vectors or numbers), split at cuts:
                         removes kinks without moving anything in time
+    along(points, t0, t1, ease)   pos(t): something travelling the points from t0 to t1, eased
+    track(points, t0, t1, fps)    that trip sampled at every frame: [[t, x, y, z], ...], the
+                        actor track the visibility checks read (core/actors.py)
 
 No dependencies.
 """
@@ -109,3 +112,24 @@ def smooth(values, sigma, cuts=()):
                 tot += wk
             out[a + i] = [x / tot for x in acc] if vec else acc / tot
     return out
+
+
+PULSE_EASE = "profile:0.15:0.25"
+
+
+def along(points, t0, t1, ease=PULSE_EASE):
+    """pos(t): where something travelling `points` from t0 to t1 is at time t (by length, eased;
+    held at the ends outside the trip). The one timing that an actor renders with
+    (blender/actors.pulse_along) and that its track records."""
+    from .curve import Curve
+
+    path = Path(points)
+    prog = Curve(keys=[(t0, 0.0), (t1, 1.0)], interp="eased", ease=ease)
+    return lambda t: path(min(1.0, max(0.0, prog(t))))
+
+
+def track(points, t0, t1, fps=30.0, ease=PULSE_EASE):
+    """The trip from `along` sampled at each frame from t0 to t1: [[t, x, y, z], ...]."""
+    pos = along(points, t0, t1, ease)
+    k0, k1 = math.ceil(t0 * fps - 1e-9), math.floor(t1 * fps + 1e-9)
+    return [[k / fps, *pos(k / fps)] for k in range(k0, k1 + 1)]

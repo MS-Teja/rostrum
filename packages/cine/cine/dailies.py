@@ -21,6 +21,7 @@ import html
 import json
 import os
 
+from .core import actors as A
 from .core import compose as C
 from .core import qa as Q
 from .core import kinematics as K
@@ -111,8 +112,9 @@ def contact(motion, shots, comp_at, flags_at, out, cols=3):
     return out
 
 
-def pack(motion, shots, out_dir, profile=None, motion_path=None):
-    """Write the dailies pack. Returns the report dict."""
+def pack(motion, shots, out_dir, profile=None, motion_path=None, hidden=None):
+    """Write the dailies pack. Returns the report dict. `hidden`: the actor flags that need the
+    scene's geometry (blender/dailies.hidden), added to the plan-time actor flags."""
     os.makedirs(out_dir, exist_ok=True)
     prof = json.load(open(profile)) if profile else None
     times = motion.times()
@@ -124,6 +126,7 @@ def pack(motion, shots, out_dir, profile=None, motion_path=None):
     vscale, vspeak, vzoom = Q.voice_args(motion, times, (prof or {}).get("flags"))
     motion_flags = Q.flags(k, (prof or {}).get("flags"), vscale, vspeak, vzoom)
     comp_flags = C.flags(motion) if motion.shapes else []
+    actor_flags = sorted(A.flags(motion) + list(hidden or []), key=lambda f: f[1])
     tol = 0.5 / motion.fps
 
     def comp_at(t):
@@ -131,7 +134,7 @@ def pack(motion, shots, out_dir, profile=None, motion_path=None):
         return {n: C.measure_points(S.world(sh, motion, t), p, a, L, S.facing(sh, motion, t)) for n, sh in motion.shapes.items()}
 
     def flags_at(t):
-        return _flags_at(motion_flags + comp_flags, t, tol)
+        return _flags_at(motion_flags + comp_flags + actor_flags, t, tol)
 
     contact(motion, shots, comp_at, flags_at, os.path.join(out_dir, "contact.png"))
     stills = []
@@ -142,13 +145,15 @@ def pack(motion, shots, out_dir, profile=None, motion_path=None):
                        "look": {k_: (round(v, 3) if isinstance(v, float) else v) for k_, v in s.get("look", {}).items()},
                        "occluded": s.get("occluded"), "flags": [list(f) for f in flags_at(s["t"]) + s.get("look_flags", [])]})
     report = {"scene": motion.name, "motion_flags": [list(f) for f in motion_flags], "composition_flags": [list(f) for f in comp_flags],
+              "actor_flags": [list(f) for f in actor_flags],
               "stills": stills, "profile": (prof or {}).get("name")}
     with open(os.path.join(out_dir, "report.json"), "w") as f:
         json.dump(report, f, indent=1)
     lines = [f"# {motion.name}: dailies report", "",
              f"Motion flags ({report['profile'] or 'default'} profile): {len(motion_flags)}. Composition flags: {len(comp_flags)}. "
-             f"Look flags: {sum(len(s.get('look_flags', [])) for s in shots)}.", ""]
-    for title, fl in (("Motion", motion_flags), ("Composition", comp_flags)):
+             f"Look flags: {sum(len(s.get('look_flags', [])) for s in shots)}. Actor flags: {len(actor_flags)}"
+             + ("" if motion.actors else " (no actors registered)") + ".", ""]
+    for title, fl in (("Motion", motion_flags), ("Composition", comp_flags), ("Actor", actor_flags)):
         if fl:
             lines.append(f"## {title} flags")
             lines += [f"- {k_} at {t0:.2f}–{t1:.2f} s: {msg}" for k_, t0, msg, t1 in fl]
