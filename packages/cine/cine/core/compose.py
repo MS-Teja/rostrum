@@ -24,6 +24,9 @@ the aim not changing hands within 0.5 s) and only if they last 0.4 s or more:
   cramped   a medium or close subject with under 2% headroom
   size      at a key, the subject's size is outside the size its shot plan asked for
   near      the camera is inside a shape's extent (its bounding box, grown 5%)
+  drift     (off by default; rules={"drift": True}) the camera moves for 2 s or more without
+            changing the frame. Slow, steady movement under the voice is a good choice; the
+            motion checks flag what's actually aimless (qa: wander, fidget)
 No dependencies.
 """
 
@@ -36,6 +39,7 @@ SIZES = [  # name, low, high (fraction of frame), from crew/cinematographer.md
 ]
 RULES = {"graze_margin": 0.05, "decisive_cut": 0.20, "clutter": 0.25, "dominant": 0.35, "dominant_ratio": 2.0, "cramped": 0.02, "lead": 0.04,
          "min_dur": 0.4,  # s: a framing fault must last this long to count (an edge sweeping past during a push doesn't)
+         "drift_window": 2.0, "drift_slow": 0.15, "drift_size": 0.12, "drift_place": 0.05, "drift_turn": 15.0,
          "transit": 0.25,  # per s: while the subject's size changes faster than this (a push, a pull) the eye follows
          "handover": 0.5}  # s: the aim has just changed hands; framing is in flux
 LASTING = ("edge", "cramped", "clutter", "dominant", "lead")
@@ -146,6 +150,41 @@ def measure_points(points, pos, aim, lens, face=None):
     return m
 
 
+def _drift(motion, times, meas, subj, r):
+    """Frames where the camera moves without changing the frame (see the module notes)."""
+    import math
+
+    ch, cam = motion.channels, motion.camera
+    pos = [list(ch[cam["pos"]](t)) for t in times]
+    aim = [list(ch[cam["aim"]](t)) for t in times]
+    lens = [float(ch[cam["lens"]](t)) for t in times]
+    k = K.measure(times, pos, aim, lens, getattr(motion, "cuts", ()))
+    dt = 1 / motion.fps
+    w = int(r["drift_window"] / dt)
+    out = []
+    for i in range(0, len(times) - w):
+        j = i + w
+        s = subj[i]
+        if s is None or s not in meas or subj[j] != s:
+            continue
+        e = k["energy"][i:j + 1]
+        if not (min(e) > 0.02 and max(e) < r["drift_slow"]):
+            continue
+        a, b = meas[s][i], meas[s][j]
+        if not (a.get("visible") and b.get("visible")):
+            continue
+        if abs(math.log(max(1e-6, b["size"])) - math.log(max(1e-6, a["size"]))) > r["drift_size"]:
+            continue
+        if abs(b["cx"] - a["cx"]) > r["drift_place"] or abs(b["cy"] - a["cy"]) > r["drift_place"]:
+            continue
+        c, _ = S.centre(S.world(motion.shapes[s], motion, times[i]))
+        va, vb = K.sub(pos[i], c), K.sub(pos[j], c)
+        if math.degrees(K.angle(va, vb)) > r["drift_turn"]:
+            continue
+        out.append(("drift", times[i], f"the camera moves for {r['drift_window']:.0f} s without changing the frame on {s}: hold still, or move with a purpose"))
+    return out
+
+
 def _contains(motion, outer, inner, t):
     """Whether shape `outer` holds shape `inner` (inner's centre inside outer's bounding box)."""
     po, pi = S.world(motion.shapes[outer], motion, t), S.world(motion.shapes[inner], motion, t)
@@ -239,6 +278,8 @@ def flags(motion, meas=None, rules=None):
                 continue  # a part shown medium or closer: the machine round it is its ground, not a rival
             if c["cover"] > r["dominant"] and c["cover"] > r["dominant_ratio"] * m["cover"]:
                 out.append(("dominant", t, f"{name} covers {c['cover']:.0%} of the frame; the subject {s} only {m['cover']:.0%}"))
+    if r.get("drift"):  # off by default: slow, steady movement under the voice is fine (qa flags wander and fidget)
+        out += _drift(motion, times, meas, subj, r)
     for shot in getattr(motion, "shots", []) or []:
         name, want = shot.get("subject"), shot.get("size")
         if not want or name not in meas:

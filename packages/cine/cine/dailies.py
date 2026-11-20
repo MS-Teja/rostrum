@@ -120,7 +120,8 @@ def pack(motion, shots, out_dir, profile=None, motion_path=None):
     aim = [list(ch[cam["aim"]](t)) for t in times]
     lens = [float(ch[cam["lens"]](t)) for t in times]
     k = K.measure(times, pos, aim, lens, motion.cuts)
-    motion_flags = Q.flags(k, (prof or {}).get("flags"))
+    vscale, vspeak = Q.voice_args(motion, times)
+    motion_flags = Q.flags(k, (prof or {}).get("flags"), vscale, vspeak)
     comp_flags = C.flags(motion) if motion.shapes else []
     tol = 0.5 / motion.fps
 

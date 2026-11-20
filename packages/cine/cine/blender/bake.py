@@ -29,7 +29,12 @@ def setup(scene, motion):
 
 
 def _linear(obj):
-    ad = obj.animation_data
+    """Make every key on `obj` linear. A node socket or other nested struct keeps its keys on the
+    datablock that owns it (a material's node tree), so look there too."""
+    ad = getattr(obj, "animation_data", None)
+    if ad is None:
+        owner = getattr(obj, "id_data", None)
+        ad = getattr(owner, "animation_data", None) if owner is not None else None
     if not ad or not ad.action:
         return
     for layer in getattr(ad.action, "layers", []) or []:

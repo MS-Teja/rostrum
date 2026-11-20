@@ -1,7 +1,8 @@
 """How a camera's motion looks to a viewer, frame by frame, in units that don't depend on the
 size of the world: a pan across a desk and a pan across the solar system read the same.
 
-From a camera (position, aim point, lens) sampled per frame:
+From a camera (position, aim point, lens) sampled per frame (sweep_h and sweep_v are the signed
+pan and tilt: turning, plus half of any sideways or vertical travel):
   sweep    how fast the picture sweeps sideways, in frame widths per second: the view's
            rotation plus the parallax of the aim point from sideways travel
   zoom     how fast the picture scales at the aim's depth, in log units per second (positive =
@@ -87,7 +88,10 @@ def measure(times, pos, aim, lens, cuts=()):
         upv = cross(right, u)
         dvu = sub(unit(vb), unit(va))
         rh, rv = dot(dvu, right) / span, dot(dvu, upv) / span
-        sh[i], sv[i] = rh / fw, rv / fw
+        # travelling sideways slides the picture the same way as turning: count it at half weight,
+        # as the total sweep does, so a camera trucking left and right is seen changing direction
+        ph, pv = dot(v, right) / d, dot(v, upv) / d
+        sh[i], sv[i] = (rh + 0.5 * ph) / fw, (rv + 0.5 * pv) / fw
         # zoom: how fast the picture scales at the aim's depth: the camera's speed along its view
         # over that depth, plus the lens change. From the camera's own motion, so handing the aim
         # to a nearer or farther subject (the aim point jumping in depth) isn't read as a zoom.

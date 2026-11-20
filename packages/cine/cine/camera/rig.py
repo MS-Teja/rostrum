@@ -1,7 +1,7 @@
 """The camera as a virtual operator. A scene's camera journey is a handful of poses at times
-(keys), and the camera travels through them on minimum-jerk curves: the path a skilled hand
-takes through via points. Continuous to the fourth derivative between keys, at rest only
-where the journey starts, ends, or a key says stop. Smooth by construction, not by repair.
+(keys), and the camera travels through them on smooth curves that never overshoot: continuous
+in speed and acceleration, at rest only where the journey starts, ends, or a key says stop, and
+gliding like a dolly move from rest to rest. Smooth by construction, not by repair.
 
     rig = Rig({"voyager": craft, "thrusters": cluster, "earth": EARTH}, fps=30)
     rig.key(0,   look="voyager",   dist=17, az=200, el=12, lens=40, screen=(-1/6, 0), label="establish")
@@ -21,7 +21,8 @@ Anything left out carries over from the key before, so the moves of the vocabula
   push in / pull back   change dist          orbit        change az
   crane up / down       change el            rack the lens change lens
   hand over the aim     change look (the camera pans to the new subject as it travels)
-  hold                  a key a few seconds later with a small drift (a camera never dies)
+  hold                  shot.Framer.hold(t): perfectly still until t (a still frame under the voice is a
+                        choice; drift without purpose is flagged)
 
 Keys are best written as a cinematographer describes the shot, with camera.shot.Framer
 (size, angle, side, lens, view), which solves the numbers against the subject's real shape
@@ -29,9 +30,11 @@ and records the plan as the key's intent.
 
 Every key becomes keyframes on the camera's curves (cam.key.az, .el, .dist, .lens, .sx, .sy
 and a weight per subject), stored in the motion file, so the journey is inspectable as curves.
-az and el travel on minimum-jerk curves; distance, lens, look weights and screen offsets on
-monotone curves, so a framing never overshoots its key (a push arrives, it doesn't sail past
-and back), a zoom never overshoots and the aim never swings past a subject. `handover` on a
+Every channel travels on monotone quintics by default: a framing never overshoots its key (a push
+arrives, it doesn't sail past and back), a slow creep between two keys can't bulge into a wobble,
+a zoom never overshoots and the aim never swings past a subject. Rig(interp="minjerk") gives
+the bearing the minimum-jerk spline instead (continuous to the fourth derivative, but it may
+swing past keys). `handover` on a
 key that changes the look sets when the aim changes hands (0.75: late, once the new subject
 is big). No dependencies.
 """
@@ -97,7 +100,7 @@ def compose(pos, aim, lens, screen):
 
 
 class Rig:
-    def __init__(self, subjects, fps=30.0, interp="minjerk", glide=0.3):
+    def __init__(self, subjects, fps=30.0, interp="monotone", glide=0.3):
         self.subjects = dict(subjects)
         self.fps, self.interp, self.glide = float(fps), interp, glide
         self.keys = []

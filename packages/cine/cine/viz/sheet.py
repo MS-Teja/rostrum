@@ -300,7 +300,9 @@ class Sheet:
         k = K.measure(self.ts, pos, aim, lens, m.cuts)
         self.k = k
         self.seg = k["segment"]
-        self.fl = Q.flags(k, profile)
+        vscale, vspeak = Q.voice_args(m, self.ts)
+        self.fl = Q.flags(k, profile, vscale, vspeak)
+        self.vscale = vscale
         self.comp = None
         if getattr(m, "shapes", None):
             self.comp = C.measure(m, self.ts)
@@ -327,6 +329,8 @@ class Sheet:
             scale.append(-math.log(max(1e-12, K.norm(v) * math.tan(K.hfov(L) / 2))))
         self.header()
         self.timeline()
+        if self.vscale:
+            self.curve("voice pace", "the speed limits follow it (1 = the profile's)", [(self.vscale, "#f78c6c", "pace")], h=56, fmt="{:.2f}", robust=False)
         self.filmstrip(list(thumbs))
         self.spans()
         self.camera_keys()

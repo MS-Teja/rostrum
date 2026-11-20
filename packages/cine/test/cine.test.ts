@@ -338,3 +338,84 @@ print(json.dumps({"normal": [k for k, _ in L.flags(m, "normal")], "low": [k for 
     expect(got.plan).toBe("low-key");
   });
 });
+
+describe("the voice drives the camera", () => {
+  it("finds words and phrases, and reads a faster stretch of speech as a faster pace", () => {
+    const got = py(`
+import json
+from cine.core.voice import Voice
+words = []
+t = 0.0
+for i in range(8):            # slow: a word every 0.6 s
+    words.append({"text": f"slow{i}", "start": t, "end": t + 0.4}); t += 0.6
+for i in range(16):           # fast: a word every 0.25 s
+    words.append({"text": f"fast{i}", "start": t, "end": t + 0.2}); t += 0.25
+words.append({"text": "tiny", "start": t, "end": t + 0.2}); words.append({"text": "drift.", "start": t + 0.25, "end": t + 0.5})
+v = Voice(words)
+times = [i / 30 for i in range(int(t * 30))]
+p = v.pace(times)
+print(json.dumps({"phrase": v.at("tiny drift"), "end": v.at("drift", edge="end"), "slow": p[int(2.0 * 30)], "fast": p[int(7.0 * 30)]}))`);
+    expect(got.phrase).toBeCloseTo(8 * 0.6 + 16 * 0.25, 6);
+    expect(got.fast).toBeGreaterThan(got.slow * 1.3);
+  });
+
+  it("scales the speed limits by the pace: the same move is too fast under a slow line, fine under a fast one", () => {
+    const [slow, fast] = py(`
+import json, math
+from cine.core import kinematics as K, qa as Q
+ts = [i / 30 for i in range(91)]
+pos = [[0, -10 * math.exp(-0.3 * t), 1] for t in ts]   # a push at a steady zoom of 0.3/s
+k = K.measure(ts, pos, [[0, 0, 1]] * len(ts), [35.0] * len(ts))
+prof = {"fast_zoom": 0.3}
+kinds = lambda sc: sorted({f[0] for f in Q.flags(k, prof, [sc] * len(ts))})
+print(json.dumps([kinds(0.6), kinds(1.5)]))`);
+    expect(slow).toContain("fast");
+    expect(fast).not.toContain("fast");
+  });
+
+  it("a deliberate hold isn't a stop-start; a zigzag wanders; a small short move between holds fidgets", () => {
+    const got = py(`
+import json, math
+from cine.core import kinematics as K, qa as Q
+from cine.core.curve import Curve
+ts = [i / 30 for i in range(301)]
+def run(xs):
+    pos = [[x, -10, 1] for x in xs]
+    k = K.measure(ts, pos, [[x, 0, 1] for x in xs], [35.0] * len(ts))
+    return sorted({f[0] for f in Q.flags(k)})
+# move, hold 3 s, move on: the hold is a choice
+c = Curve(keys=[(0, 0), (3, 4), (6, 4), (10, 8)], interp="monotone", stops=[3, 6])
+hold = run([c(t) for t in ts])
+# a zigzag: left, right, left within 3 s
+zig = run([0.6 * math.sin(2 * math.pi * t / 1.6) for t in ts])
+# a fidget: hold, a tiny 0.6 s nudge, hold
+f = Curve(keys=[(0, 0), (4, 0), (4.6, 0.4), (10, 0.4)], interp="monotone", stops=[4, 4.6])
+fid = run([f(t) for t in ts])
+print(json.dumps({"hold": hold, "zig": zig, "fidget": fid}))`);
+    expect(got.hold).not.toContain("hiccup");
+    expect(got.zig).toContain("wander");
+    expect(got.fidget).toContain("fidget");
+  });
+
+  it("a still hold doesn't move at all; a creeping hold moves slowly one way", () => {
+    const got = py(`
+import json
+from cine.camera import rig as R, shot as SH
+from cine.core import shape as S, kinematics as K
+pts = S.box([-1, -0.5, -0.5], [1, 0.5, 0.5])
+def build(**kw):
+    rig = R.Rig({"box": [0, 0, 0]}, fps=30)
+    F = SH.Framer(rig, {"box": pts})
+    F.shot(0.0, "box", "medium wide", az=30, lens=35)
+    F.hold(4.0, **kw)
+    cam = rig.sample(0, 4)
+    k = K.measure(cam["t"], cam["pos"], cam["aim"], cam["lens"])
+    return max(k["energy"]), sum(1 for z in k["zoom"][1:-1] if z < -1e-6)
+still, creep = build(), build(creep=0.1)
+print(json.dumps({"still": still[0], "creep": creep[0], "creep_backwards": creep[1]}))`);
+    expect(got.still).toBeLessThan(1e-9);
+    expect(got.creep).toBeGreaterThan(0.005);
+    expect(got.creep).toBeLessThan(0.1);
+    expect(got.creep_backwards).toBe(0);
+  });
+});

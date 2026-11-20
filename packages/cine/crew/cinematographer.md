@@ -112,16 +112,33 @@ Write the motive for each move in the shot plan:
 | **follow** | Keep a moving subject in frame, trailing it slightly (`look` on it, lead room ahead of it) |
 | **emphasise** | Push in as the important thing happens or is said |
 | **relate** | Travel from one subject to another to connect them (hand the `look` over) |
-| **establish** | A slow drift, so a still scene has depth and isn't dead |
+| **hold** | Stay still, or creep slowly one way, while the voice explains what's in frame (`F.hold(t)`, `creep=`, `drift=`). A still frame is a choice, not a dead scene |
+
+**Still or slow, never aimless.** While the voice explains what's in frame, the camera can:
+- **hold perfectly still** (`F.hold(t)`); or
+- **creep slowly and steadily one way:** a slow push, a slow pull or a slow orbit (`F.hold(t, creep=0.06)` or `drift=` degrees).
+
+Both are right. A creep can flow straight into the next move, with no stop between them.
+
+What's unnecessary, and checked:
+- **wander:** the camera changes direction twice or more within 3 s. It meanders instead of going somewhere.
+- **fidget:** a small, short move between holds, under 1.2 s, that never gets going. Hold instead, or make it a real move.
+- **There and back:** travelling somewhere only to return, with no new thing seen on the way.
+
+**Moves ride the voice.** Start a move on the word that motivates it, and land it before the word the action belongs to. Hold through a sentence that explains the frame. Holds should be deliberate, 1.2 s or longer; a shorter stop between two moves reads as a stumble.
 
 **Arrive before the action.** The camera reaches its framing, or slows near it, 0.5–1 s *before* the key action (the puff, the light switching on, the word that matters), so the viewer's eye is already there. A camera still moving fast when the action happens means the viewer misses it.
 
 **One dominant motion.** When an actor does something important, the camera slows or holds. When the camera makes a big move, actors stay quiet. The sheet's speed rows and the actor rows show whether both peak at once.
 
-**Speeds** (film profile, measured on Blender's open films):
-- **Sweep:** under 0.70 frame widths per second at the fast end, and usually 0.01–0.17.
-- **Zoom:** under 0.39 log-scale per second.
-- **Turn-backs:** a pan, tilt or zoom shouldn't snap back faster than 0.51 per second².
+**Speeds follow the voice.** The explainer profile (`profiles/explainer.json`, the film limits ×1.5, set by eye) gives the base limits:
+- sweep 1.05 frame widths per second
+- zoom 0.59 log-scale per second
+- turn-backs 0.76 per second²
+
+The voice's pace scales them moment by moment, from 0.6× under a slow, quiet line to 1.5× under a fast, loud one (`core/voice.py`). A brisk move belongs under a brisk line; a slow, reflective line asks for a still or gentle camera.
+
+For comparison, the film profile (measured on Blender's open films) is sweep 0.70, zoom 0.39 and turn-backs 0.51.
 
 **Parallax makes depth.** Moving sideways relative to the view, past something near, gives the strongest sense of depth. A straight push towards a subject with nothing in front of it gives almost none. Give it foreground, or add some sideways travel.
 
@@ -160,7 +177,8 @@ Then turn each line into a key with `shot()`, and check the key-pose dailies bef
 - No grazing edge cuts. Non-subject foreground covers under 25% of the frame, unless planned. Nothing else covers over 35% of the frame and more than twice the subject's share.
 - Lead room on the side the subject faces or moves towards. Headroom 5–15% in medium and close shots.
 - The camera arrives 0.5–1 s before each key action.
+- Every move has a motive tied to a word. Through lines that explain the frame, the camera is still or creeping slowly one way. There's no wander and no fidget.
 - At least two depth layers in most shots.
 - Lens choices are deliberate and vary with the beat, not one focal length throughout.
-- Speeds are inside the film profile, and the sheet raises no motion flags.
+- Speeds are inside the explainer profile scaled by the voice's pace, and the sheet raises no motion flags.
 - The 180° line and screen direction hold.

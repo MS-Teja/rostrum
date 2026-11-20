@@ -34,9 +34,11 @@ Each beat has exactly one subject and one dominant motion. If a beat needs two, 
 ## 3. Pacing
 
 - **One idea per beat.** A narration sentence usually carries one idea, so give it one beat.
-- **Moves ride the words.** A move starts or lands within about 0.3 s of the word it illustrates (the words lane on the sheet shows this). The camera arrives 0.5–1 s before the action (see the cinematographer guide).
+- **The voice sets the pace.** The voiceover's speed and energy (`core/voice.py`) scale how fast the camera may move, moment by moment. A fast, excited line can carry a brisk move; a slow, quiet line asks for a still or gentle camera. The sheet shows the pace curve under the words.
+- **Moves ride the words.** A move starts on the word that motivates it, and lands before the word its action belongs to, within about 0.3 s. The words lane on the sheet shows this. The camera arrives 0.5–1 s before the action (see the cinematographer guide). Place keys by words (`voice.at("fire")`), not by seconds.
+- **Still or slow under the voice.** While the voice explains what's already in frame, the camera holds still or creeps slowly one way. Move faster when the story moves: a new subject, a reveal, an emphasis.
 - **Hold what matters.** Hold an important image for at least 2 s, so it can be read. Hold the scene's "remember" image longest.
-- **Keep it fed.** Give something new every 3–6 s: a new subject, a reveal, a change of size or an actor's action. Over 8 s with nothing new feels dead; the sheet flags dead stillness.
+- **Keep it fed.** Give something new every 3–6 s: a new subject, a reveal, a change of size, an actor's action, or a new idea in the voice over a held frame. Silence with nothing moving for over 4 s feels dead; the sheet flags it.
 - **Breathe.** After a big move or a big reveal, give the viewer a slower beat to take it in before the next.
 
 ## 4. Transitions between scenes
@@ -80,7 +82,7 @@ Choose one per boundary and write it in both scenes' briefs:
 ## 8. Checklist (what review looks for)
 
 - The brief exists. Every beat has one subject, one dominant motion and its words.
-- Moves land on their words, and the camera arrives before the action.
+- Moves start and land on their words, the camera arrives before the action, and the pace follows the voice. There's no wandering or fidgeting camera.
 - Something new every 3–6 s, and the "remember" image holds longest.
 - Transitions are designed, and continuity holds: direction, light, object state.
 - The standing rules hold.

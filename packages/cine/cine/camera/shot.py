@@ -17,6 +17,8 @@ The words are crew/cinematographer.md's:
   vside  centre, or headroom (top of the subject 10% below the frame top)
   look   normal, low-key or silhouette: the planned exposure the look checks judge it by
          (core/look.py); say why in the label
+F.hold(t) keeps the last shot still until t, or creeping slowly one way (creep=, drift=): under
+an explaining voice, a still frame or a slow steady move. Move faster only with a motive.
 No dependencies.
 """
 
@@ -99,6 +101,20 @@ class Framer:
                 break
         m = look(dist, screen)
         return {"dist": dist, "az": az, "el": el, "lens": float(lens), "screen": tuple(screen)}, m
+
+    def hold(self, t, label="hold", creep=0.0, drift=0.0):
+        """Hold the last shot until t: perfectly still, or creeping slowly and steadily. creep
+        pushes in by that fraction of the distance over the hold (negative pulls back); drift
+        turns round the subject by that many degrees. Under an explaining voice both are right:
+        a still frame, or a slow move that goes one way. What isn't: wandering and fidgeting."""
+        last = self.rig.keys[-1]
+        intent = dict(last.get("intent") or {}, motive="creep" if (creep or drift) else "hold")
+        intent.pop("achieved", None)
+        if not creep and not drift:
+            last["stop"] = True
+            self.rig.key(t, stop=True, label=label, intent=intent)
+        else:
+            self.rig.key(t, dist=last["dist"] * (1 - creep), az=last["az"] + drift, label=label, intent=intent)
 
     def shot(self, t, subject, size, angle="eye", side="centre", lens=35.0, az=None, view=None, hand=1, vside="centre",
              motive="", label=None, stop=False, handover=0.5, look="normal"):

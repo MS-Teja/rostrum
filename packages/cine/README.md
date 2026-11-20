@@ -89,6 +89,18 @@ F.shot(0.0, "voyager", "medium wide", angle=-10, side="left third", lens=30, az=
 F.shot(9.4, "thrusters", 0.8, angle=20, side="centre", lens=50, az=74, motive="emphasise", look="low-key")
 ```
 
+## The voice
+
+The voiceover drives the picture (`cine/core/voice.py`):
+- **Keys by words.** `voice.at("fire")` gives the time a word starts, and `edge="end"` the time it ends. Camera keys, actor cues and puffs are placed by words, not seconds.
+- **Pace from the voice.** The pace combines the speaking rate (against the take's own median), the loudness when the audio is given, and pauses. It runs from about 0.6 for a slow, quiet line to 1.5 for a fast, loud one.
+- **Limits follow the pace.** The speed limits scale with it moment by moment (`qa.flags(scale=...)`), so a brisk move fits a brisk line and a slow line asks for calm. The sheet shows the pace under the words.
+- **Still or slow under the voice.** While the voice explains, the camera holds (`F.hold(t)`) or creeps slowly one way (`creep=`, `drift=`). The checks flag what's actually unnecessary:
+  - **wander:** changing direction twice or more in 3 s;
+  - **fidget:** a small, short move between holds.
+
+  A deliberate hold of 1.2 s or more isn't a stop-start, and stillness while someone is speaking isn't a dead scene.
+
 ## The camera
 
 A scene's camera journey is a handful of poses at times, and the camera travels through them on minimum-jerk curves: the path a skilled hand takes through via points.
@@ -110,8 +122,7 @@ cam = rig.sample(0, 20)
 Anything left out carries over from the key before. So the vocabulary of moves (push in, pull back, orbit, crane, rack the lens, hand the aim to a new subject) is just keys.
 
 **How the curves are built:**
-- **Bearing** uses the minimum-jerk spline. It's continuous to the fourth derivative, and at rest only at the ends or at a key marked `stop`.
-- **Distance, lens, look weights and screen offsets** use monotone quintics:
+- **Every channel, by default,** uses monotone quintics (pass `Rig(interp="minjerk")` for the older minimum-jerk bearing):
   - a framing never overshoots its key: a push arrives instead of sailing past and back;
   - a move from rest to rest glides like a dolly grip's (ease in, cruise, ease out);
   - the aim never swings past a subject.
@@ -132,6 +143,7 @@ The keys are stored as curves in the motion file, and the sheet draws them as an
 | `cine/camera/shot.py` | Shots set up from intent (size, angle, side, lens, view), solved against the subject's real shape |
 | `cine/core/shape.py`, `compose.py` | Subject shapes, and composition measured and checked every frame |
 | `cine/core/look.py` | Exposure checks by planned look |
+| `cine/core/voice.py` | The voiceover: word times, the pace curve, the words lane |
 | `cine/blender/hull.py` | Exports subject shapes from real meshes |
 | `cine/blender/dailies.py`, `cine/dailies.py` | Key-pose stills, masks, look measures, occlusion, and the dailies pack |
 | `crew/` | The four craft guides |
