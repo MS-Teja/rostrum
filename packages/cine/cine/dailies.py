@@ -85,7 +85,8 @@ def contact(motion, shots, comp_at, flags_at, out, cols=3):
         size = f'{C.size_name(sm["size"])} {sm["size"]:.2f}' if sm.get("visible") else "out of frame"
         plan = next((p for p in (motion.shots or []) if abs(p["t"] - s["t"]) < 1e-3), None)
         lk = s.get("look", {})
-        lk_txt = f'exposure {lk["median"]:.2f} · contrast {lk["contrast"]:.1f}:1 · spread {lk["spread"]:.2f} · crushed {lk["crushed"]:.0%}' if lk.get("subject_visible") else "subject not in frame"
+        lk_txt = (f'exposure {lk["median"]:.2f} · contrast {lk["contrast"]:.1f}:1 · spread {lk["spread"]:.2f} · crushed {lk["crushed"]:.0%}'
+                  + (f' · look: {s["planned_look"]}' if s.get("planned_look", "normal") != "normal" else "")) if lk.get("subject_visible") else "subject not in frame"
         line1 = f'{s["t"]:.2f} s · {tag} · {s["subject"]} · {size}' + (f' (plan: {plan["size"]})' if plan else "")
         parts.append(f'<text x="{x0}" y="{y0 + ch + 15}" fill="#e9e7e2" font-size="12" font-weight="600">{html.escape(line1)}</text>')
         parts.append(f'<text x="{x0}" y="{y0 + ch + 30}" fill="#b9bcc3" font-size="11">{html.escape(lk_txt)}</text>')
@@ -165,10 +166,10 @@ def pack(motion, shots, out_dir, profile=None, motion_path=None):
     with open(os.path.join(out_dir, "report.md"), "w") as f:
         f.write("\n".join(lines) + "\n")
     brief = [f"# {motion.name}: brief and shot plan", "", motion.brief or "(no brief written)", "", "## Shot plan (keys)", "",
-             "| t | subject | size | angle | side | lens | motive | achieved |", "|---|---|---|---|---|---|---|---|"]
+             "| t | subject | size | angle | side | lens | motive | look | achieved |", "|---|---|---|---|---|---|---|---|---|"]
     for p in motion.shots or []:
         a = p.get("achieved", {})
-        brief.append(f'| {p["t"]:.2f} | {p.get("subject")} | {p.get("size")} | {p.get("angle")} | {p.get("side")} | {p.get("lens")} | {p.get("motive", "")} | {a.get("named", "")} {a.get("size", "")} |')
+        brief.append(f'| {p["t"]:.2f} | {p.get("subject")} | {p.get("size")} | {p.get("angle")} | {p.get("side")} | {p.get("lens")} | {p.get("motive", "")} | {p.get("look", "normal")} | {a.get("named", "")} {a.get("size", "")} |')
     with open(os.path.join(out_dir, "brief.md"), "w") as f:
         f.write("\n".join(brief) + "\n")
     if motion_path:

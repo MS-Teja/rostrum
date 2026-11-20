@@ -4,6 +4,7 @@ the real light source, and a dark sky. Fast enough to judge motion on a laptop.
     look.preview(scene, res=(960, 540), samples=16, blur=True)
     look.space_rig(scene, sun_dir=(-0.6, 0.2, 0.3))     # hard key from the Sun, faint fill, rim
     look.glow(scene)                                     # bloom on emissive accents (compositor)
+    look.starfield(scene, hyg_sky_stars)                 # the real sky: magnitudes and B-V colours
 """
 
 import math
@@ -101,10 +102,11 @@ def emissive(name, colour, strength):
     return m
 
 
-def plume(name, colour, strength=4.0, falloff=1.6, method="BLENDED"):
+def plume(name, colour, strength=4.0, falloff=1.6, softness=1.5, method="BLENDED"):
     """A glowing gas: bright at the object's base (generated z = 0), fading to nothing at its far
-    end, see-through everywhere. For thruster puffs, exhaust, jets: put it on a cone whose narrow
-    end is the nozzle."""
+    end and at its silhouette (so a cone reads as a soft puff, not a solid), see-through
+    everywhere. For thruster puffs, exhaust, jets: put it on an open cone whose narrow end is
+    the nozzle."""
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     nt = m.node_tree
@@ -124,10 +126,24 @@ def plume(name, colour, strength=4.0, falloff=1.6, method="BLENDED"):
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     mix = nt.nodes.new("ShaderNodeMixShader")
     out = nt.nodes.new("ShaderNodeOutputMaterial")
+    lw = nt.nodes.new("ShaderNodeLayerWeight")  # facing: 0 where we look straight in, 1 at the silhouette
+    lw.inputs["Blend"].default_value = 0.5
+    soft = nt.nodes.new("ShaderNodeMath")
+    soft.operation = "SUBTRACT"
+    soft.inputs[0].default_value = 1.0
+    edge = nt.nodes.new("ShaderNodeMath")
+    edge.operation = "POWER"
+    edge.inputs[1].default_value = softness
+    both = nt.nodes.new("ShaderNodeMath")
+    both.operation = "MULTIPLY"
     nt.links.new(tc.outputs["Generated"], sep.inputs[0])
     nt.links.new(sep.outputs["Z"], inv.inputs[1])
     nt.links.new(inv.outputs[0], pw.inputs[0])
-    nt.links.new(pw.outputs[0], mix.inputs["Fac"])
+    nt.links.new(lw.outputs["Facing"], soft.inputs[1])
+    nt.links.new(soft.outputs[0], edge.inputs[0])
+    nt.links.new(pw.outputs[0], both.inputs[0])
+    nt.links.new(edge.outputs[0], both.inputs[1])
+    nt.links.new(both.outputs[0], mix.inputs["Fac"])
     nt.links.new(tr.outputs[0], mix.inputs[1])
     nt.links.new(em.outputs[0], mix.inputs[2])
     nt.links.new(mix.outputs[0], out.inputs["Surface"])
@@ -136,6 +152,60 @@ def plume(name, colour, strength=4.0, falloff=1.6, method="BLENDED"):
     if hasattr(m, "use_transparency_overlap"):
         m.use_transparency_overlap = True
     return m
+
+
+def bv_temperature(bv):
+    """A star's B-V colour index to its effective temperature, K (Ballesteros 2012)."""
+    return 4600.0 * (1 / (0.92 * bv + 1.7) + 1 / (0.92 * bv + 0.62))
+
+
+def starfield(scene, stars, radius=6000.0, mag_limit=6.5, size=0.00035, strength=5.0, name="cine.stars"):
+    """The real night sky: stars as tiny emitters on a sphere far beyond everything, each with its
+    true direction, brightness from its magnitude (each magnitude is x0.4 in flux) and colour from
+    its B-V index through Blender's blackbody (so colour management stays physical). `stars` is
+    a list of {"d": unit direction, "mag": magnitude, "ci": B-V}. Size and strength are
+    compressed (flux^0.25 and flux^0.5) so faint stars stay visible on a small preview."""
+    O = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))
+    F = ((0, 2, 4), (2, 1, 4), (1, 3, 4), (3, 0, 4), (2, 0, 5), (1, 2, 5), (3, 1, 5), (0, 3, 5))
+    verts, faces, temps, glows = [], [], [], []
+    for st in stars:
+        mag = st.get("mag", 6.0)
+        if mag > mag_limit:
+            continue
+        flux = 10 ** (-0.4 * (mag - 1.0))  # magnitude 1 -> 1
+        r = radius * size * min(2.2, max(0.35, flux ** 0.25))
+        g = strength * min(4.0, max(0.03, flux ** 0.5))
+        t = bv_temperature(st.get("ci", 0.6) if st.get("ci") is not None else 0.6)
+        p = [x * radius for x in st["d"]]
+        base = len(verts)
+        verts += [(p[0] + r * o[0], p[1] + r * o[1], p[2] + r * o[2]) for o in O]
+        faces += [(base + f[0], base + f[1], base + f[2]) for f in F]
+        temps += [t] * len(F)
+        glows += [g] * len(F)
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    for key, vals in (("temp", temps), ("glow", glows)):
+        a = me.attributes.new(key, "FLOAT", "FACE")
+        a.data.foreach_set("value", vals)
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    for n in list(nt.nodes):
+        nt.nodes.remove(n)
+    at, ag = nt.nodes.new("ShaderNodeAttribute"), nt.nodes.new("ShaderNodeAttribute")
+    at.attribute_name, ag.attribute_name = "temp", "glow"
+    bb = nt.nodes.new("ShaderNodeBlackbody")
+    em = nt.nodes.new("ShaderNodeEmission")
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    nt.links.new(at.outputs["Fac"], bb.inputs["Temperature"])
+    nt.links.new(bb.outputs[0], em.inputs["Color"])
+    nt.links.new(ag.outputs["Fac"], em.inputs["Strength"])
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    o = bpy.data.objects.new(name, me)
+    o.data.materials.append(m)
+    o.visible_shadow = False
+    scene.collection.objects.link(o)
+    return o
 
 
 def surface(name, colour, roughness=0.5, metallic=0.0):

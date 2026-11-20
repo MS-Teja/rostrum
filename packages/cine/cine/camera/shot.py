@@ -15,6 +15,8 @@ The words are crew/cinematographer.md's:
   view   front, three-quarter, side, back three-quarter, back: degrees off the way the subject
          faces (0, 40, 90, 140, 180), turned by `hand` (+1 or -1); or give az directly
   vside  centre, or headroom (top of the subject 10% below the frame top)
+  look   normal, low-key or silhouette: the planned exposure the look checks judge it by
+         (core/look.py); say why in the label
 No dependencies.
 """
 
@@ -29,13 +31,16 @@ SIDES = {"left third": -1 / 6, "centre": 0.0, "center": 0.0, "right third": 1 / 
 VIEWS = {"front": 0.0, "three-quarter": 40.0, "side": 90.0, "back three-quarter": 140.0, "back": 180.0}
 
 
+TARGETS = {  # where in each band a shot aims: inside the band, and clear of the 5% edge margin
+    "extreme wide": 0.06, "wide": 0.2, "medium wide": 0.42, "medium": 0.67, "close": 0.86, "extreme close": 1.45,
+}
+
+
 def _size_target(size):
     if isinstance(size, (int, float)):
         return float(size), None
-    lo, hi = C.size_band(size)
-    if hi > 50:  # extreme close: open-ended
-        return lo * 1.3, size
-    return (lo + hi) / 2 if lo > 0 else hi * 0.6, size
+    C.size_band(size)  # validates the name
+    return TARGETS[size], size
 
 
 def _call(f, t):
@@ -96,10 +101,10 @@ class Framer:
         return {"dist": dist, "az": az, "el": el, "lens": float(lens), "screen": tuple(screen)}, m
 
     def shot(self, t, subject, size, angle="eye", side="centre", lens=35.0, az=None, view=None, hand=1, vside="centre",
-             motive="", label=None, stop=False):
+             motive="", label=None, stop=False, handover=0.5, look="normal"):
         k, m = self.solve(t, subject, size, angle, side, lens, az, view, hand, vside)
-        intent = {"subject": subject, "size": size, "angle": angle, "side": side, "lens": lens, "motive": motive,
+        intent = {"subject": subject, "size": size, "angle": angle, "side": side, "lens": lens, "motive": motive, "look": look,
                   "achieved": {"size": round(m.get("size", 0), 3), "cx": round(m.get("cx", 0), 3), "named": C.size_name(m.get("size", 0))}}
         self.rig.key(t, look=subject, dist=k["dist"], az=k["az"], el=k["el"], lens=k["lens"], screen=k["screen"],
-                     stop=stop, label=label or motive, intent=intent)
+                     stop=stop, label=label or motive, intent=intent, handover=handover)
         return k, m

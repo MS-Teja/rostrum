@@ -31,6 +31,8 @@ Size is measured from the subject's real shape (its hull), not a point. It's the
 
 A "close-up of the thrusters" in which the thruster cluster covers 8% of the frame and the craft around it covers 54% is a shot of the craft. Move in, or use a longer lens, until the subject holds the frame.
 
+Once a part is shown medium or closer, the machine around it is its ground, not a rival, and the dominance limit doesn't apply to that machine. The part must still read: lit, in contrast, and placed on purpose.
+
 **Size changes need room to breathe.** Going from extreme wide to close in one continuous move needs at least 4–5 s at the film profile's zoom limit (0.39 log-scale per second). If the beat is shorter, start the move earlier, or make the change smaller.
 
 ## 2. Edge cuts: in or out, never grazing
@@ -42,6 +44,14 @@ A subject is either:
 Anything in between reads as a mistake: a silhouette touching the edge, or a sliver cut off.
 
 Thin parts (booms, antennas, cables) may leave the frame. List them as `may_leave` in the subject definition, and they're exempt.
+
+**Which frames are judged.** These framing rules (sizes, edges, dominance, lead room) apply to the frames the viewer gets to look at. They don't apply:
+- **while the subject grows or shrinks fast**, by more than 25% a second (a push or a pull), when the eye follows the motion;
+- **while the aim is between subjects**, with under 90% of it on one, or within 0.5 s of it changing hands.
+
+Plan the held frames to be right, and let the transits be transits.
+
+**A close-up sits centred.** At "close" size (about 0.86 of the frame), any offset puts the subject inside the 5% margin. Give the subject a third only at medium or smaller.
 
 ## 3. Placement
 

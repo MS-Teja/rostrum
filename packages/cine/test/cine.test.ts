@@ -234,3 +234,107 @@ print(json.dumps(err))`);
     expect(err).toBeLessThan(1e-3);
   });
 });
+
+describe("composition", () => {
+  it("measures a box's size, centre, cut and cover from a known camera", () => {
+    const got = py(`
+import json, math
+from cine.core import compose as C, shape as S, kinematics as K
+pts = S.box([-1, -1, -1], [1, 1, 1])          # a 2 m cube at the origin
+lens = 36.0                                    # hfov = 2 atan(18/36) -> half width tan = 0.5
+d = 10.0
+pos, aim = [0, -d, 0], [0, 0, 0]
+m = C.measure_points(pts, pos, aim, lens)
+# the near face (y = -1) is 9 m away: half width there = 9 * 0.5 = 4.5 m, so 2 m spans 2/9 of the width
+w_expect = 2 / 9
+h_expect = 2 / (9 * 0.5 / (16 / 9)) / 2
+# shift the aim so the cube sits half out of frame on the right
+off = C.measure_points(pts, pos, [-0.5 * 2 * d * 0.5 + 0.0, 0, 0], lens)
+print(json.dumps([m["w"], w_expect, m["h"], h_expect, m["cx"], m["out"], m["cover"], m["size"], C.size_name(m["size"]), off["cx"], off["out"]]))`);
+    const [w, wExpect, h, hExpect, cx, out, cover, size, name, offCx, offOut] = got;
+    expect(w).toBeCloseTo(wExpect, 6);
+    expect(h).toBeCloseTo(hExpect, 6);
+    expect(cx).toBeCloseTo(0, 9);
+    expect(out).toBe(0);
+    expect(cover).toBeGreaterThan(0.9 * w * h);
+    expect(size).toBeCloseTo(Math.max(w, h), 9);
+    expect(name).toBe("medium wide");
+    expect(offCx).toBeGreaterThan(0.4);
+    expect(offOut).toBeGreaterThan(0.2);
+  });
+
+  it("flags a grazing edge, a dominant neighbour and a camera inside a shape; stays quiet on a clean frame", () => {
+    const got = py(`
+import json
+from cine.core.curve import Curve, Motion
+from cine.core import compose as C, shape as S
+def scene(cam_pos, aim, part_size=0.3):
+    m = Motion("t", 0, 1, 30)
+    m.channels["cam.pos"] = Curve(keys=[(0, cam_pos), (1, cam_pos)], interp="linear")
+    m.channels["cam.aim"] = Curve(keys=[(0, aim), (1, aim)], interp="linear")
+    m.channels["cam.lens"] = Curve(keys=[(0, 35.0), (1, 35.0)], interp="linear")
+    m.channels["cam.key.look.part"] = Curve(keys=[(0, 1.0), (1, 1.0)], interp="linear")
+    m.shapes = {"part": {"points": S.box([-part_size] * 3, [part_size] * 3)},
+                "machine": {"points": S.box([-3, 1, -2], [3, 3, 2]), "role": "context"}}
+    return sorted({f[0] for f in C.flags(m)})
+clean = scene([0, -12, 0], [0, 0, 0], part_size=1.2)
+dominant = scene([0, -5, 0], [0, 0, 0])
+graze = scene([0, -8, 0], [3.0, 0, 0], part_size=1.2)
+inside = scene([0, 2, 0], [0, 0, 0])
+print(json.dumps({"clean": clean, "dominant": dominant, "graze": graze, "inside": inside}))`);
+    expect(got.clean).toEqual([]);
+    expect(got.dominant).toContain("dominant");
+    expect(got.graze).toContain("edge");
+    expect(got.inside).toContain("near");
+  });
+
+  it("sets up a shot from intent: the asked size, third and angle", () => {
+    const got = py(`
+import json
+from cine.camera import rig as R, shot as SH
+from cine.core import shape as S, compose as C
+pts = S.box([-1, -0.5, -0.5], [1, 0.5, 0.5])
+rig = R.Rig({"box": [0, 0, 0]}, fps=30)
+F = SH.Framer(rig, {"box": pts}, facing={"box": [1, 0, 0]})
+out = []
+for size, side, angle in (("medium wide", "left third", "low"), ("close", "centre", "eye"), ("wide", "right third", "high")):
+    k, m = F.shot(len(out) * 2.0, "box", size, angle=angle, side=side, lens=35, view="three-quarter")
+    lo, hi = C.size_band(size)
+    out.append([C.size_name(m["size"]) == size, abs(m["cx"] - SH.SIDES[side]), k["el"] == SH.ANGLES[angle]])
+cam = rig.sample(0, 4)
+print(json.dumps({"checks": out, "shots": len(cam["shots"]), "intent": cam["shots"][0]["size"]}))`);
+    for (const [sizeOk, cxErr, angleOk] of got.checks) {
+      expect(sizeOk).toBe(true);
+      expect(cxErr).toBeLessThan(1e-3);
+      expect(angleOk).toBe(true);
+    }
+    expect(got.shots).toBe(3);
+    expect(got.intent).toBe("medium wide");
+  });
+});
+
+describe("glide and planned looks", () => {
+  it("a rest-to-rest glide peaks at 1/(1-r) of its average speed, below minimum-jerk's 1.875", () => {
+    const [mj, gl] = py(`
+import json
+from cine.core.curve import Curve
+def peak(c):
+    vs = [(c((i + 1) / 300) - c(i / 300)) * 300 for i in range(300)]
+    return max(vs)
+print(json.dumps([peak(Curve(keys=[(0, 0), (1, 1)], interp="monotone")), peak(Curve(keys=[(0, 0), (1, 1)], interp="monotone", glide=0.3))]))`);
+    expect(mj).toBeCloseTo(1.875, 2);
+    expect(gl).toBeCloseTo(1 / 0.7, 2);
+  });
+
+  it("judges a still by its planned look: a dark subject passes low-key, fails normal", () => {
+    const got = py(`
+import json
+from cine.core import look as L
+m = {"subject_visible": True, "median": 0.06, "p10": 0.01, "p90": 0.25, "spread": 0.24, "clipped": 0.0, "crushed": 0.22, "background": 0.01, "contrast": 3.0}
+print(json.dumps({"normal": [k for k, _ in L.flags(m, "normal")], "low": [k for k, _ in L.flags(m, "low-key")],
+                  "plan": L.planned([{"t": 9.4, "subject": "thrusters", "look": "low-key"}, {"t": 15, "subject": "dish"}], "thrusters", 10.1)}))`);
+    expect(got.normal).toContain("murky");
+    expect(got.low).toEqual([]);
+    expect(got.plan).toBe("low-key");
+  });
+});

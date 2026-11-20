@@ -4,8 +4,9 @@ size of the world: a pan across a desk and a pan across the solar system read th
 From a camera (position, aim point, lens) sampled per frame:
   sweep    how fast the picture sweeps sideways, in frame widths per second: the view's
            rotation plus the parallax of the aim point from sideways travel
-  zoom     how fast the subject's scale changes on screen, in log units per second
-           (positive = it grows: a push in or a lens zoom in)
+  zoom     how fast the picture scales at the aim's depth, in log units per second (positive =
+           it grows: a push in or a lens zoom in), from the camera's motion along its view and
+           the lens, so handing the aim to a nearer or farther subject isn't read as a zoom
   roll     degrees per second about the view axis
   energy   the overall rate of change of the picture (the length of the three combined)
 plus each one's acceleration and jerk. Scene changes (cuts) split the measurement.
@@ -87,10 +88,11 @@ def measure(times, pos, aim, lens, cuts=()):
         dvu = sub(unit(vb), unit(va))
         rh, rv = dot(dvu, right) / span, dot(dvu, upv) / span
         sh[i], sv[i] = rh / fw, rv / fw
-        # zoom: subject scale on screen ~ 1 / (distance * tan(hfov/2))
-        da = norm(sub(aim[a], pos[a])) * math.tan(hfov(lens[a]) / 2)
-        db = norm(sub(aim[b], pos[b])) * math.tan(hfov(lens[b]) / 2)
-        zoom[i] = (math.log(da) - math.log(db)) / span if da > 0 and db > 0 else 0.0
+        # zoom: how fast the picture scales at the aim's depth: the camera's speed along its view
+        # over that depth, plus the lens change. From the camera's own motion, so handing the aim
+        # to a nearer or farther subject (the aim point jumping in depth) isn't read as a zoom.
+        fwd = v[0] * u[0] + v[1] * u[1] + v[2] * u[2]
+        zoom[i] = fwd / d + (math.log(max(1e-9, lens[b])) - math.log(max(1e-9, lens[a]))) / span
         sweep[i] = math.hypot(rot / fw, par / fw * 0.5)  # parallax counts half: the background moves less than the subject
     energy = [math.sqrt(sweep[i] ** 2 + zoom[i] ** 2) for i in range(n)]
     out = {"t": list(times), "sweep": sweep, "sweep_h": sh, "sweep_v": sv, "zoom": zoom, "energy": energy, "segment": seg}

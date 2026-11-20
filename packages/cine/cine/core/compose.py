@@ -11,12 +11,15 @@ Per shape and frame:
   cover    fraction of the frame its silhouette (convex hull) covers
   depth    median distance along the view; cx, cy its box centre; head the room above it
   lead     room ahead of it in the direction it faces (+ = room ahead, - = it faces the edge)
-Flags (merged into the sheet's flags):
+Flags (merged into the sheet's flags). Framing faults count only in frames the viewer gets to
+look at (the subject's size changing under 25% a second, at least 90% of the aim on it, and
+the aim not changing hands within 0.5 s) and only if they last 0.4 s or more:
   edge      the beat's subject grazes the frame edge: touching or barely cut (cut 0-20%)
   clutter   a context shape nearer than the subject covers more than a quarter of the frame
   dominant  another shape takes the frame over from the subject: it covers over 35% of the
             frame and more than twice the subject's share (a "close-up" of a part that is
-            really a shot of the whole machine)
+            really a shot of the whole machine). A part shown medium or closer is exempt from
+            the machine that holds it: that's its ground.
   lead      the subject faces the near edge with the open frame behind it
   cramped   a medium or close subject with under 2% headroom
   size      at a key, the subject's size is outside the size its shot plan asked for
@@ -31,7 +34,11 @@ SIZES = [  # name, low, high (fraction of frame), from crew/cinematographer.md
     ("extreme wide", 0.0, 0.10), ("wide", 0.10, 0.30), ("medium wide", 0.30, 0.55),
     ("medium", 0.55, 0.80), ("close", 0.80, 1.10), ("extreme close", 1.10, 99.0),
 ]
-RULES = {"graze_margin": 0.05, "decisive_cut": 0.20, "clutter": 0.25, "dominant": 0.35, "dominant_ratio": 2.0, "cramped": 0.02, "lead": 0.04}
+RULES = {"graze_margin": 0.05, "decisive_cut": 0.20, "clutter": 0.25, "dominant": 0.35, "dominant_ratio": 2.0, "cramped": 0.02, "lead": 0.04,
+         "min_dur": 0.4,  # s: a framing fault must last this long to count (an edge sweeping past during a push doesn't)
+         "transit": 0.25,  # per s: while the subject's size changes faster than this (a push, a pull) the eye follows
+         "handover": 0.5}  # s: the aim has just changed hands; framing is in flux
+LASTING = ("edge", "cramped", "clutter", "dominant", "lead")
 
 
 def size_name(s):
@@ -139,6 +146,20 @@ def measure_points(points, pos, aim, lens, face=None):
     return m
 
 
+def _contains(motion, outer, inner, t):
+    """Whether shape `outer` holds shape `inner` (inner's centre inside outer's bounding box)."""
+    po, pi = S.world(motion.shapes[outer], motion, t), S.world(motion.shapes[inner], motion, t)
+    c, _ = S.centre(pi)
+    return all(min(p[k] for p in po) <= c[k] <= max(p[k] for p in po) for k in range(3))
+
+
+def _look_weight(motion, name, t):
+    """The share of the aim on subject `name` at time t (1.0 when the camera has no look curves)."""
+    ws = {n[13:]: max(0.0, c(t)) for n, c in motion.channels.items() if n.startswith("cam.key.look.")}
+    tot = sum(ws.values())
+    return ws.get(name, 0.0) / tot if tot > 0 else 1.0
+
+
 def beat_subject(motion, t):
     """The camera's look subject at time t: the heaviest look weight (from camera.rig)."""
     best, wbest = None, 0.0
@@ -169,8 +190,20 @@ def flags(motion, meas=None, rules=None):
     from .qa import merge
     r = dict(RULES)
     r.update(rules or {})
+    import math
+
     times = motion.times()
     meas, subj = meas or measure(motion, times)
+    dt = 1 / motion.fps
+    held = []  # frames the viewer gets to look at: the subject's size steady, the aim settled
+    for i, t in enumerate(times):
+        s, a, b = subj[i], max(0, i - 3), min(len(times) - 1, i + 3)
+        ok = s in meas and meas[s][a].get("visible") and meas[s][b].get("visible") and subj[a] == s == subj[b]
+        rate = abs(math.log(max(1e-6, meas[s][b]["size"])) - math.log(max(1e-6, meas[s][a]["size"]))) / ((b - a) * dt) if ok else 0.0
+        w = int(r["handover"] / dt)
+        recent = any(subj[j] != s for j in range(max(0, i - w), min(len(times), i + w + 1)))
+        mixing = _look_weight(motion, s, t) < 0.9  # the aim is still travelling between subjects
+        held.append(not (rate > r["transit"] or recent or mixing))
     out = []
     for i, t in enumerate(times):
         s = subj[i]
@@ -178,7 +211,7 @@ def flags(motion, meas=None, rules=None):
             m = ms[i]
             if m.get("near"):
                 out.append(("near", t, f"the camera is inside {name}'s extent"))
-        if s not in meas:
+        if s not in meas or not held[i]:
             continue
         m = meas[s][i]
         if not m.get("visible") or m["behind"] > 0:
@@ -194,12 +227,16 @@ def flags(motion, meas=None, rules=None):
             c = ms[i]
             if name == s or not c.get("visible") or motion.shapes[name].get("role", "subject") != "context":
                 continue
+            if _contains(motion, s, name, t):
+                continue  # a part of the subject itself isn't clutter in front of it
             if c["depth"] < m["depth"] and c["cover"] > r["clutter"]:
                 out.append(("clutter", t, f"{name} (nearer than {s}) covers {c['cover']:.0%} of the frame"))
         for name, ms in meas.items():
             c = ms[i]
             if name == s or not c.get("visible") or c["behind"] > 0:
                 continue
+            if m["size"] >= 0.55 and _contains(motion, name, s, t):
+                continue  # a part shown medium or closer: the machine round it is its ground, not a rival
             if c["cover"] > r["dominant"] and c["cover"] > r["dominant_ratio"] * m["cover"]:
                 out.append(("dominant", t, f"{name} covers {c['cover']:.0%} of the frame; the subject {s} only {m['cover']:.0%}"))
     for shot in getattr(motion, "shots", []) or []:
@@ -211,5 +248,4 @@ def flags(motion, meas=None, rules=None):
         lo, hi = size_band(want) if isinstance(want, str) else (want * 0.9, want * 1.1)
         if m.get("visible") and not (lo <= m["size"] < hi):
             out.append(("size", times[i], f"{name} is {size_name(m['size'])} ({m['size']:.2f}); the plan asked for {want}"))
-    dt = 1 / motion.fps
-    return merge(out, dt)
+    return [f for f in merge(out, dt) if f[0] not in LASTING or f[3] - f[1] >= r["min_dur"] - dt / 2]

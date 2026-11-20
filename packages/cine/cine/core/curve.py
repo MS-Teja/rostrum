@@ -12,6 +12,9 @@ A Curve is either
              "monotone" quintic segments that never overshoot: a key that is a peak, a valley
                        or one of two equal keys is reached at rest; elsewhere speed carries
                        through. Continuous to the second derivative. Weights, screen offsets.
+                       With glide=r, a segment from rest to rest eases in over r of it, cruises,
+                       and eases out (a dolly grip's move): its peak speed is 1/(1-r) of its
+                       average instead of minimum-jerk's 1.875.
              "spline"  a clamped cubic spline through every key: continuous in value, speed
                        and acceleration (C2), at rest at the first and last key.
              "eased"   each segment its own ease (default minjerk): the value settles at every
@@ -45,7 +48,7 @@ def _lerp(a, b, u):
 
 
 class Curve:
-    def __init__(self, keys=None, interp="spline", samples=None, fps=30.0, t0=0.0, ease="minjerk", eases=None, stops=()):
+    def __init__(self, keys=None, interp="spline", samples=None, fps=30.0, t0=0.0, ease="minjerk", eases=None, stops=(), glide=0.0):
         if (keys is None) == (samples is None):
             raise ValueError("a Curve has keys or samples, not both")
         self.fps, self.t0 = float(fps), float(t0)
@@ -57,6 +60,8 @@ class Curve:
             self.eases = [E.get(e) for e in eases] if eases else None  # per segment, for "eased"
             self.samples = None
             self.stops = sorted(float(x) for x in stops)
+            self.glide = float(glide)
+            self._glides = {}
             if interp == "spline" and len(ks) > 1:
                 self._spline()
             if interp in ("minjerk", "monotone") and len(ks) > 1:
@@ -87,6 +92,10 @@ class Curve:
             self._c = _minjerk_spline(ts, cols, stop)
         else:
             self._c = [_monotone_quintic(ts, ys, stop) for ys in cols]
+            if self.glide > 0 and comps == 1:  # rest-to-rest segments glide: ease in, cruise, ease out
+                for i, c in enumerate(self._c[0]):
+                    if abs(c[1]) < 1e-12 and abs(c[1] + 2 * c[2] + 3 * c[3] + 4 * c[4] + 5 * c[5]) < 1e-12 and cols[0][i] != cols[0][i + 1]:
+                        self._glides[i] = (cols[0][i], cols[0][i + 1], E.scurve(self.glide))
 
     # ── evaluation ───────────────────────────────────────────────────────────────────────
     @property
@@ -119,6 +128,9 @@ class Curve:
         if self.interp == "eased":
             e = self.eases[i] if self.eases else self.ease
             return _lerp(va, vb, e(u))
+        if self.interp == "monotone" and i in self._glides:
+            a, b, e = self._glides[i]
+            return a + (b - a) * e(u)
         if self.interp in ("minjerk", "monotone"):
             def poly(c):
                 return c[0] + u * (c[1] + u * (c[2] + u * (c[3] + u * (c[4] + u * c[5]))))
@@ -148,13 +160,15 @@ class Curve:
             d["ease"] = self.ease.name
         if self.stops:
             d["stops"] = self.stops
+        if getattr(self, "glide", 0):
+            d["glide"] = self.glide
         return d
 
     @classmethod
     def from_json(cls, d):
         if "samples" in d:
             return cls(samples=d["samples"], fps=d.get("fps", 30), t0=d.get("t0", 0.0))
-        return cls(keys=d["keys"], interp=d.get("interp", "spline"), ease=d.get("ease", "minjerk"), stops=d.get("stops", ()))
+        return cls(keys=d["keys"], interp=d.get("interp", "spline"), ease=d.get("ease", "minjerk"), stops=d.get("stops", ()), glide=d.get("glide", 0.0))
 
 
 def _clamped_second_derivs(ts, ys):

@@ -83,13 +83,23 @@ def flags(k, profile=None):
     return merge(out, dt)
 
 
+def _size(msg):
+    import re
+
+    m = re.search(r"-?\d+(?:\.\d+)?", msg)
+    return abs(float(m.group(0))) if m else 0.0
+
+
 def merge(fl, dt, gap=0.25):
-    """One flag per run: neighbouring frames with the same flag become one, at its first frame."""
+    """One flag per run: neighbouring frames with the same flag become one, starting at its first
+    frame, with the message of its worst frame (the largest number in it)."""
     fl.sort(key=lambda f: (f[0], f[1]))
     out = []
     for f in fl:
         if out and out[-1][0] == f[0] and f[1] - out[-1][3] <= gap:
             out[-1][3] = f[1]
+            if _size(f[2]) > _size(out[-1][2]):
+                out[-1][2] = f[2]
             continue
         out.append([f[0], f[1], f[2], f[1]])
     return [(a, t0, msg, t1) for a, t0, msg, t1 in sorted(out, key=lambda f: f[1])]

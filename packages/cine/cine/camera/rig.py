@@ -29,9 +29,11 @@ and records the plan as the key's intent.
 
 Every key becomes keyframes on the camera's curves (cam.key.az, .el, .dist, .lens, .sx, .sy
 and a weight per subject), stored in the motion file, so the journey is inspectable as curves.
-az, el and log(dist) travel on minimum-jerk curves; the lens, the look weights and the screen
-offsets on monotone curves, so a zoom never overshoots and the aim never swings past a
-subject. No dependencies.
+az and el travel on minimum-jerk curves; distance, lens, look weights and screen offsets on
+monotone curves, so a framing never overshoots its key (a push arrives, it doesn't sail past
+and back), a zoom never overshoots and the aim never swings past a subject. `handover` on a
+key that changes the look sets when the aim changes hands (0.75: late, once the new subject
+is big). No dependencies.
 """
 
 import math
@@ -95,12 +97,12 @@ def compose(pos, aim, lens, screen):
 
 
 class Rig:
-    def __init__(self, subjects, fps=30.0, interp="minjerk"):
+    def __init__(self, subjects, fps=30.0, interp="minjerk", glide=0.3):
         self.subjects = dict(subjects)
-        self.fps, self.interp = float(fps), interp
+        self.fps, self.interp, self.glide = float(fps), interp, glide
         self.keys = []
 
-    def key(self, t, look=None, dist=None, az=None, el=None, lens=None, screen=None, stop=False, label=None, intent=None):
+    def key(self, t, look=None, dist=None, az=None, el=None, lens=None, screen=None, stop=False, label=None, intent=None, handover=0.5):
         prev = self.keys[-1] if self.keys else {"look": None, "dist": 10.0, "az": 0.0, "el": 10.0, "lens": 35.0, "screen": (0.0, 0.0)}
         look = prev["look"] if look is None else look
         if look is None:
@@ -114,7 +116,8 @@ class Rig:
             a = prev["az"] + ((a - prev["az"] + 180) % 360 - 180)
         k = {"t": float(t), "look": look, "w": w, "dist": prev["dist"] if dist is None else float(dist), "az": a,
              "el": prev["el"] if el is None else float(el), "lens": prev["lens"] if lens is None else float(lens),
-             "screen": tuple(prev["screen"] if screen is None else screen), "stop": stop, "label": label or "", "intent": intent}
+             "screen": tuple(prev["screen"] if screen is None else screen), "stop": stop, "label": label or "", "intent": intent,
+             "handover": float(handover)}
         if self.keys and k["t"] <= prev["t"]:
             raise ValueError("keys must be in time order")
         self.keys.append(k)
@@ -129,14 +132,22 @@ class Rig:
         ch = {
             "cam.key.az": Curve(keys=[(k["t"], k["az"]) for k in ks], interp=mj, stops=stops),
             "cam.key.el": Curve(keys=[(k["t"], k["el"]) for k in ks], interp=mj, stops=stops),
-            "cam.key.dist": Curve(keys=[(k["t"], math.log(k["dist"])) for k in ks], interp=mj, stops=stops),
-            "cam.key.lens": Curve(keys=[(k["t"], math.log(k["lens"])) for k in ks], interp=mono, stops=stops),
+            "cam.key.dist": Curve(keys=[(k["t"], math.log(k["dist"])) for k in ks], interp=mono, stops=stops, glide=self.glide),
+            "cam.key.lens": Curve(keys=[(k["t"], math.log(k["lens"])) for k in ks], interp=mono, stops=stops, glide=self.glide),
             "cam.key.sx": Curve(keys=[(k["t"], k["screen"][0]) for k in ks], interp=mono, stops=stops),
             "cam.key.sy": Curve(keys=[(k["t"], k["screen"][1]) for k in ks], interp=mono, stops=stops),
         }
         used = sorted({n for k in ks for n in k["w"]})
         for n in used:
-            ch["cam.key.look." + n] = Curve(keys=[(k["t"], k["w"].get(n, 0.0)) for k in ks], interp=mono, stops=stops)
+            pts = []
+            for a, b in zip([None] + ks[:-1], ks):
+                if a is not None and a["w"] != b["w"] and abs(b["handover"] - 0.5) > 1e-6:
+                    # the aim changes hands at `handover` of the way between the keys, not halfway
+                    wa, wb = a["w"].get(n, 0.0), b["w"].get(n, 0.0)
+                    h = min(0.9, max(0.1, b["handover"]))
+                    pts.append((a["t"] + h * (b["t"] - a["t"]), (wa + wb) / 2))
+                pts.append((b["t"], b["w"].get(n, 0.0)))
+            ch["cam.key.look." + n] = Curve(keys=pts, interp=mono, stops=stops)
         return ch
 
     def state(self, t, ch=None):

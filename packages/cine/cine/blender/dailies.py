@@ -1,6 +1,7 @@
 """Dailies inside Blender: render a scene's key poses as stills, with a mask per still that
 separates the subject from everything else, and measure what the look role checks
-(crew/look.md): exposure, contrast, clipping, crush, flatness. Also ray-tests whether
+(crew/look.md): exposure, contrast, clipping, crush, flatness, judged by each shot's
+planned look (core/look.py). Also ray-tests whether
 anything blocks the camera's view of the subject. GPL-3.0-or-later.
 
     from cine.blender import dailies
@@ -18,6 +19,7 @@ import numpy as np
 from mathutils import Vector
 
 from ..core import compose as C
+from ..core import look as LK
 from ..core import shape as S
 
 
@@ -54,31 +56,6 @@ def measure_look(still, mask):
         "spread": float(np.percentile(s, 90) - np.percentile(s, 10)), "clipped": float((s >= 0.98).mean()),
         "crushed": float((s <= 0.02).mean()), "background": bmed, "contrast": med / max(bmed, 0.02),
     })
-    return out
-
-
-LOOK = {"median": (0.20, 0.60), "contrast": 3.0, "clipped": 0.02, "crushed": 0.35, "spread": 0.15}
-
-
-def look_flags(m, rules=None):
-    r = dict(LOOK)
-    r.update(rules or {})
-    out = []
-    if not m.get("subject_visible"):
-        return out
-    lo, hi = r["median"]
-    if m["median"] < lo:
-        out.append(("murky", f"subject median {m['median']:.2f} (under {lo})"))
-    if m["median"] > hi:
-        out.append(("washed", f"subject median {m['median']:.2f} (over {hi})"))
-    if m["contrast"] < r["contrast"]:
-        out.append(("contrast", f"subject against background {m['contrast']:.1f}:1 (under {r['contrast']:g}:1)"))
-    if m["clipped"] > r["clipped"]:
-        out.append(("clipped", f"{m['clipped']:.0%} of the subject clipped"))
-    if m["crushed"] > r["crushed"]:
-        out.append(("crushed", f"{m['crushed']:.0%} of the subject crushed to black"))
-    if m["spread"] < r["spread"]:
-        out.append(("flat", f"subject spread {m['spread']:.2f} (under {r['spread']}): its form doesn't read"))
     return out
 
 
@@ -171,7 +148,8 @@ def render(scene, motion, times, out_dir, subject, other=(), hide=(), res=(640, 
     r.resolution_x, r.resolution_y, scene.eevee.taa_render_samples, r.filepath = keep["x"], keep["y"], keep["samples"], keep["path"]
     for s in shots:
         s["look"] = measure_look(s["still"], s["mask"])
-        s["look_flags"] = look_flags(s["look"])
+        s["planned_look"] = LK.planned(motion.shots, s["subject"], s["t"])
+        s["look_flags"] = LK.flags(s["look"], s["planned_look"])
         if s["occluded"] is not None and s["occluded"] > 0.15:
             s["look_flags"].append(("occluded", f"{s['occluded']:.0%} of {s['subject']} blocked by something in front"))
     return shots

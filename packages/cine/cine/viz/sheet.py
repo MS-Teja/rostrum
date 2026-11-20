@@ -153,6 +153,7 @@ class Sheet:
             lo, hi = min(lo, 0.0), max(hi, 0.0)
         if hi - lo < 1e-12:
             hi = lo + 1.0
+        vmin, vmax = min(vals), max(vals)  # the labels show the data's true extremes, not the padded axis
         pad = (hi - lo) * 0.08
         lo, hi = lo - pad, hi + pad
         Y = lambda v: y + h - (min(hi, max(lo, v)) - lo) / (hi - lo) * h  # noqa: E731
@@ -160,8 +161,8 @@ class Sheet:
             self.add(f'<rect x="{self.x0}" y="{Y(band[1]):.1f}" width="{self.x1 - self.x0}" height="{Y(band[0]) - Y(band[1]):.1f}" fill="{BAND}" opacity="0.7"/>')
         if zero and lo < 0 < hi:
             self.add(f'<line x1="{self.x0}" y1="{Y(0):.1f}" x2="{self.x1}" y2="{Y(0):.1f}" stroke="#444"/>')
-        self.add(f'<text x="{self.x0 + 4}" y="{y + 12}" fill="{MUTE}" font-size="10">{fmt.format(hi)}</text>')
-        self.add(f'<text x="{self.x0 + 4}" y="{y + h - 3}" fill="{MUTE}" font-size="10">{fmt.format(lo)}</text>')
+        self.add(f'<text x="{self.x0 + 4}" y="{y + 12}" fill="{MUTE}" font-size="10">max {fmt.format(vmax)}</text>')
+        self.add(f'<text x="{self.x0 + 4}" y="{y + h - 3}" fill="{MUTE}" font-size="10">min {fmt.format(vmin)}</text>')
         if clipped:  # outliers: a red tick at the edge where the curve leaves the row
             self.add(f'<text x="{self.x1 - 4}" y="{y + h - 4}" fill="#ff5a5a" font-size="10" text-anchor="end">clipped: spikes beyond the scale marked ▲</text>')
             for vals_, _c, _l in series:

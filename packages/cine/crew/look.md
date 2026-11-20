@@ -14,6 +14,11 @@ Every light has a reason: a real source in the scene, or a declared cheat.
 **Space.**
 - **The key is the Sun.** A hard key (small angle, about 0.5°), from the Sun's true direction. From the outer solar system, the Sun and Earth sit within a fraction of a degree of each other, so a dish pointed at Earth is lit face-on.
 - **The fill is a cheat.** Space has no fill, so the shadow side is truly black. Add a cool fill at most 1/30 of the key (about 5 stops down), so shapes stay readable, and declare it.
+- **A subject that never sees the Sun gets a local light.** Some parts sit permanently in shadow; Voyager's bus is always behind its dish. When such a part is the beat's subject, add a declared local light near it, up to 1/8 of the key:
+  - a small soft light on the camera's side, falling off before it reaches sunlit surfaces;
+  - never casting a shadow that contradicts the Sun.
+
+  The part then reads, and the sunlit parts are unchanged. Without it, a close-up of the part is a black frame until something lights it.
   - Near a planet, the planet's own reflected light is a real fill. Earthshine is bluish; a gas giant's light is warm.
 - **The rim separates the subject from black.** Put it behind and above. Keep it at most half the key; a rim brighter than the key flattens the subject into a cut-out. Scene A's first rim did exactly that to the back of the dish.
 
@@ -37,6 +42,12 @@ All values are measured inside the subject mask unless stated.
 | Clipped (luminance ≥ 0.98) on the subject | Under 2%. Emissive and specular highlights are allowed, and live in their own mask. |
 | Crushed (luminance ≤ 0.02) on the subject | Under 35%. In space a large shadow side is true, but the whole subject going black is not readable. |
 | Flatness: the spread (90th minus 10th percentile) of subject luminance | At least 0.15. A subject that's one flat grey has lost its form, as the dish back did. |
+
+**A planned look changes the targets.** A shot plan can declare its look, and the checks judge the still by it (`cine/core/look.py`):
+- **low-key:** a dark subject by nature or by design, such as black thermal blankets, or a part that never sees the Sun. It's judged on separation and form, not brightness: median from 0.03, contrast at least 2.5:1, crushed under 50%, spread at least 0.15.
+- **silhouette:** a subject against the light. Its rim must read: the 90th percentile at least 0.30, and 5:1 against the background.
+
+Say why in the shot plan. A planned look is a decision, not an excuse.
 
 ## 3. Assets: real first
 
@@ -71,7 +82,7 @@ All values are measured inside the subject mask unless stated.
 ## 5. Checklist (what review looks for)
 
 - Every light has a source or a declared cheat.
-- The fill is 1/30 of the key or less, and the rim is half the key or less.
+- The fill is 1/30 of the key or less (a local light on a permanently shadowed subject, up to 1/8), and the rim is half the key or less.
 - The subject's exposure, contrast, clipping, crush and spread are all in range.
 - The assets are real. Cheats are uniform, declared and listed with their source.
 - No plastic white: large panels show their form.
