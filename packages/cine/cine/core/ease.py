@@ -80,6 +80,49 @@ def scurve(ramp=0.25):
     return Ease(f"scurve({r:g})", y, speed)
 
 
+def profile(ramp_in=0.25, ramp_out=0.25):
+    """A speed profile: ramp up from rest over `ramp_in` of the move (0 = start already at
+    cruising speed), cruise, ramp down to rest over `ramp_out` (0 = leave at cruising speed).
+    Ramps are minimum-jerk in acceleration. Progress may run past 0..1 (extrapolate()), at
+    the speed the move has at that end, so moves can overlap and cross-fade without a stop."""
+    ri, ro = min(0.95, max(0.0, ramp_in)), min(0.95, max(0.0, ramp_out))
+    if ri + ro > 1:
+        k = 1 / (ri + ro)
+        ri, ro = ri * k, ro * k
+    v = 1.0 / (1.0 - ri / 2 - ro / 2)
+
+    def integ(u):
+        return u**4 * (2.5 - 3 * u + u * u)
+
+    def speed(x):
+        if ri > 0 and x < ri:
+            return v * minjerk.y(x / ri)
+        if ro > 0 and x > 1 - ro:
+            return v * minjerk.y((1 - x) / ro)
+        return v
+
+    def y(x):
+        if ri > 0 and x <= ri:
+            return v * ri * integ(x / ri)
+        if ro > 0 and x >= 1 - ro:
+            return 1.0 - v * ro * integ((1 - x) / ro)
+        return v * ri * 0.5 + v * (x - ri)
+
+    e = Ease(f"profile({ri:g},{ro:g})", y, speed)
+    e.v_in = 0.0 if ri > 0 else v
+    e.v_out = 0.0 if ro > 0 else v
+    return e
+
+
+def extrapolate(e, x):
+    """Progress beyond 0..1 continues at the speed the ease has at that end (0 if it rests)."""
+    if x < 0:
+        return x * getattr(e, "v_in", e.speed(0.0))
+    if x > 1:
+        return 1.0 + (x - 1) * getattr(e, "v_out", e.speed(1.0))
+    return e(x)
+
+
 def spring(response=0.5, damping=0.8):
     """A spring released at rest towards 1; `response` is the undamped period in units of the
     move, damping in (0, 1]. The move's length should cover its settling time."""
@@ -167,6 +210,8 @@ def get(spec):
     vals = [float(a) for a in args]
     if name == "scurve":
         return scurve(*vals)
+    if name == "profile":
+        return profile(*vals)
     if name == "spring":
         return spring(*vals)
     if name == "bezier":

@@ -129,3 +129,108 @@ print(json.dumps([f[0] for f in Q.flags(k)]))`);
     expect(got).not.toContain("jerk");
   });
 });
+
+describe("minimum-jerk and monotone curves", () => {
+  it("two keys give exactly the minimum-jerk ease; more keys stay continuous to the 4th derivative", () => {
+    const got = py(`
+import json
+from cine.core.curve import Curve
+from cine.core import ease as E
+two = Curve(keys=[(0, 0), (2, 1)], interp="minjerk")
+err2 = max(abs(two(t / 50) - E.minjerk(t / 100)) for t in range(101))
+c = Curve(keys=[(0, 0), (1.5, 2), (4, 3), (5, 6), (8, 6.5)], interp="minjerk")
+ts = [k[0] for k in c.keys]
+def deriv(seg, n, u):  # n-th time derivative of segment seg at local u, from its coefficients
+    co, h = c._c[0][seg], ts[seg + 1] - ts[seg]
+    tot = 0.0
+    for j in range(n, 6):
+        f = 1.0
+        for q in range(j - n + 1, j + 1):
+            f *= q
+        tot += co[j] * f * u ** (j - n)
+    return tot / h ** n
+jumps = [abs(deriv(i - 1, n, 1.0) - deriv(i, n, 0.0)) for i in (1, 2, 3) for n in (1, 2, 3, 4)]
+ends = [abs(deriv(0, 1, 0.0)), abs(deriv(0, 2, 0.0)), abs(deriv(3, 1, 1.0)), abs(deriv(3, 2, 1.0))]
+keys = [abs(c(t) - v) for t, v in c.keys]
+print(json.dumps([err2, max(jumps), max(ends), max(keys)]))`);
+    const [err2, jump, ends, keys] = got;
+    expect(err2).toBeLessThan(1e-9);
+    expect(jump).toBeLessThan(1e-8);
+    expect(ends).toBeLessThan(1e-9);
+    expect(keys).toBeLessThan(1e-9);
+  });
+
+  it("a stop key brings the curve to rest; a monotone curve never overshoots its keys", () => {
+    const [stopSpeed, lo, hi, mjLo] = py(`
+import json
+from cine.core.curve import Curve
+s = Curve(keys=[(0, 0), (1, 1), (2, 3)], interp="minjerk", stops=[1])
+keys = [(0, 0), (4.5, 0), (9, 1), (14, 0), (20, 0)]
+m = Curve(keys=keys, interp="monotone")
+mj = Curve(keys=keys, interp="minjerk")
+v = [m(t / 30) for t in range(601)]
+print(json.dumps([abs(s(1.0005) - s(0.9995)) / 1e-3, min(v), max(v), min(mj(t / 30) for t in range(601))]))`);
+    expect(stopSpeed).toBeLessThan(1e-3);
+    expect(lo).toBeGreaterThanOrEqual(-1e-12);
+    expect(hi).toBeLessThanOrEqual(1 + 1e-12);
+    expect(mjLo).toBeLessThan(-0.01); // why weights and screen offsets use monotone
+  });
+
+  it("round-trips keys, interpolation and stops through JSON", () => {
+    const same = py(`
+import json
+from cine.core.curve import Curve
+c = Curve(keys=[(0, [0, 0]), (1, [1, 2]), (3, [0, 5])], interp="minjerk", stops=[1])
+d = Curve.from_json(json.loads(json.dumps(c.to_json())))
+print(json.dumps(all(abs(a - b) < 1e-12 for t in range(31) for a, b in zip(c(t / 10), d(t / 10)))))`);
+    expect(same).toBe(true);
+  });
+});
+
+describe("camera rig", () => {
+  const journey = `
+import json, math
+from cine.camera import rig as R
+from cine.core import kinematics as K, qa as Q
+spin = lambda t: [0.3 * math.cos(t), 0.3 * math.sin(t), 0.0]
+rig = R.Rig({"craft": [0, 0, 0], "part": spin, "far": [0, 40, 5]}, fps=30)
+rig.key(0, look="craft", dist=30, az=140, el=6, lens=40, screen=(-1/6, 0))
+rig.key(4.5, dist=24, az=128, el=9)
+rig.key(9, look="part", dist=4, az=80, el=28, screen=(0, 0))
+rig.key(14, look="craft", dist=8, az=45, el=22)
+rig.key(20, dist=14, az=20, el=-5, lens=35, screen=(-0.2, 0))
+cam = rig.sample(0, 20)
+k = K.measure(cam["t"], cam["pos"], cam["aim"], cam["lens"])
+`;
+
+  it("passes through every key: position relative to what it looks at, lens and screen place", () => {
+    const err = py(journey + `
+worst = 0.0
+for key in rig.keys:
+    i = int(round(key["t"] * 30))
+    piv = R._pt(rig.subjects[key["look"]], key["t"])
+    want = [piv[j] + R.direction(key["az"], key["el"])[j] * key["dist"] for j in range(3)]
+    worst = max(worst, K.norm(K.sub(cam["pos"][i], want)), abs(cam["lens"][i] - key["lens"]))
+    s = K.screen(cam["pos"][i], cam["aim"][i], cam["lens"][i], piv)
+    worst = max(worst, abs(s[0] - key["screen"][0]), abs(s[1] - key["screen"][1]))
+print(json.dumps(worst))`);
+    expect(err).toBeLessThan(1e-6);
+  });
+
+  it("a chained journey through five keys raises no flags and starts and ends at rest", () => {
+    const [flags, e0, e1, peak] = py(journey + `
+print(json.dumps([[f[0] for f in Q.flags(k)], k["energy"][1], k["energy"][-2], max(k["energy"])]))`);
+    expect(flags).toEqual([]);
+    expect(e0).toBeLessThan(0.02 * peak);
+    expect(e1).toBeLessThan(0.05 * peak);
+  });
+
+  it("frames two subjects at the screen places asked for", () => {
+    const err = py(`
+import json
+from cine.camera import rig as R
+az, el, err = R.frame_two([0, 0, 0.6], [11, 44, 8], (-0.2, -0.04), (0.25, 0.1), dist=14, lens=35)
+print(json.dumps(err))`);
+    expect(err).toBeLessThan(1e-3);
+  });
+});

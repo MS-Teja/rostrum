@@ -20,13 +20,18 @@ main{padding:12px 16px 60px;display:grid;gap:14px}.card{background:var(--card);b
 .card h2{font-size:13px;margin:0 0 8px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
 .wrap{position:relative;display:inline-block}.wrap svg{display:block;max-width:none}
 #flags{font-size:13px;columns:2;column-gap:28px}#flags div{break-inside:avoid;padding:2px 0;cursor:pointer}#flags b{color:#ff5a5a}
-video{max-width:min(960px,100%);display:block;border-radius:6px}
+video{width:100%;display:block;border-radius:6px}
+.top{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:1100px){.top{grid-template-columns:minmax(0,1fr)}}
+#mapwrap{display:block}#mapwrap svg{width:100%;height:auto;max-width:100%}
 </style></head><body>
 <header><h1>__TITLE__</h1><button id="play">Play</button><input id="scrub" type="range" min="0" max="1000" value="0"><span id="t"></span></header>
 <main>
+<div class="top">
 __VIDEO__
-<section class="card"><h2>Motion sheet: every curve, start to finish</h2><div class="wrap" id="sheetwrap">__SHEET__</div></section>
 <section class="card"><h2>Director's map</h2><div class="wrap" id="mapwrap">__MAP__</div></section>
+</div>
+<section class="card"><h2>Motion sheet: every curve, start to finish</h2><div class="wrap" id="sheetwrap">__SHEET__</div></section>
 <section class="card"><h2>Flags</h2><div id="flags">__FLAGS__</div></section>
 </main>
 <script>

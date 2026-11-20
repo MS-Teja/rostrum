@@ -87,19 +87,31 @@ class Sheet:
         self.y += 6
 
     def filmstrip(self, thumbs, h=96):
+        """As many frames as fit side by side, each centred on its own time (a tick marks it)."""
+        thumbs = sorted((t, p) for t, p in thumbs if os.path.exists(p))
         if not thumbs:
             return
         y = self.row(h)
-        self.label(y, h, "picture", "a frame every 0.5s")
-        self.frame(y, h)
         w = h * 16 / 9
-        for t, path in thumbs:
-            if not os.path.exists(path):
-                continue
+        n = max(2, int((self.x1 - self.x0) // (w + 4)))
+        span = self.m.t1 - self.m.t0
+        picked = []
+        for k in range(n):  # the thumb nearest each evenly spaced slot
+            slot = self.m.t0 + span * (k + 0.5) / n
+            best = min(thumbs, key=lambda tp: abs(tp[0] - slot))
+            if best not in picked:
+                picked.append(best)
+        self.label(y, h, "picture", f"{len(picked)} frames, at their times")
+        self.frame(y, h)
+        slot_w = (self.x1 - self.x0) / n
+        for k, (t, path) in enumerate(picked):
             with open(path, "rb") as f:
                 data = base64.b64encode(f.read()).decode()
-            x = min(self.x(t) - w / 2, self.x1 - w)
-            self.add(f'<image x="{max(self.x0, x):.1f}" y="{y}" width="{w:.1f}" height="{h}" href="data:image/jpeg;base64,{data}"/>')
+            mime = "png" if path.endswith(".png") else "jpeg"
+            x = self.x0 + k * slot_w + (slot_w - w) / 2
+            self.add(f'<image x="{x:.1f}" y="{y}" width="{w:.1f}" height="{h}" href="data:image/{mime};base64,{data}"/>')
+            self.add(f'<line x1="{self.x(t):.1f}" y1="{y + h}" x2="{self.x(t):.1f}" y2="{y + h + 5}" stroke="{INK}"/>')
+            self.add(f'<text x="{x + 3:.1f}" y="{y + 11}" fill="{INK}" font-size="9">{t:.1f}s</text>')
 
     def spans(self):
         sp = [s for s in self.m.spans if s.get("t1", 0) > self.m.t0 and s.get("t0", 0) < self.m.t1]
@@ -117,7 +129,7 @@ class Sheet:
             self.add(f'<rect x="{a:.1f}" y="{yy}" width="{max(2, b - a):.1f}" height="20" rx="4" fill="#2a2f39" stroke="#3a4250"/>')
             self.add(f'<text x="{a + 5:.1f}" y="{yy + 14}" fill="{INK}" font-size="11">{html.escape(s.get("label", ""))}</text>')
 
-    def curve(self, name, sub, series, h=90, dots=False, zero=False, band=None, fmt="{:.2f}", robust=True):
+    def curve(self, name, sub, series, h=90, dots=False, zero=False, band=None, fmt="{:.2f}", robust=True, keys=()):
         """series: [(values, colour, label)] sampled at self.ts. Each series is drawn in the
         same scale (the row's min..max), with a dot per frame when dots=True."""
         y = self.row(h)
@@ -173,6 +185,10 @@ class Sheet:
                 if dots:
                     for px, py, _ in run:
                         self.add(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="1.3" fill="{col}"/>')
+        for t, v, col in keys:  # keyframes: a diamond where the curve passes through each key
+            if self.m.t0 - 1e-6 <= t <= self.m.t1 + 1e-6:
+                px, py = self.x(t), Y(v)
+                self.add(f'<path d="M{px:.1f},{py - 5:.1f} L{px + 5:.1f},{py:.1f} L{px:.1f},{py + 5:.1f} L{px - 5:.1f},{py:.1f} Z" fill="{BG}" stroke="{col}" stroke-width="1.6"/>')
         if len(series) > 1:
             lx = self.x1 - 8
             for vals_, col, lab in reversed(series):
@@ -189,6 +205,34 @@ class Sheet:
             a, b = self.x(t0), self.x(max(t1, t0 + 1 / self.m.fps))
             self.add(f'<rect x="{a:.1f}" y="{y + 4}" width="{max(3, b - a):.1f}" height="{h - 8}" fill="{FLAG}" opacity="0.85"><title>{html.escape(kind)} {t0:.2f}s: {html.escape(msg)}</title></rect>')
             self.add(f'<text x="{a + 2:.1f}" y="{y - 2}" fill="{FLAG}" font-size="9">{html.escape(kind)}</text>')
+
+    def camera_keys(self):
+        """The camera's keyed curves (from camera.rig), each key a diamond: the journey as an
+        animator's graph editor shows it."""
+        ch = self.m.channels
+        if "cam.key.az" not in ch:
+            return
+
+        def rows(names, conv=lambda v: v):
+            series, marks = [], []
+            for j, (n, lab, col) in enumerate(names):
+                if n not in ch:
+                    continue
+                c = ch[n]
+                series.append(([conv(c(t)) for t in self.ts], col, lab))
+                marks += [(t, conv(v), col) for t, v in (c.keys or [])]
+            return series, marks
+
+        s, k = rows([("cam.key.az", "azimuth", AIM), ("cam.key.el", "elevation", SWEEP)])
+        self.curve("camera bearing", "degrees round the subject", s, h=80, fmt="{:.0f}°", keys=k, robust=False)
+        s, k = rows([("cam.key.dist", "distance", ZOOM)], math.exp)
+        s2, k2 = rows([("cam.key.lens", "lens", CAM)], math.exp)
+        self.curve("camera distance", "metres from the subject (log)", [(list(map(math.log, s[0][0])), ZOOM, "log distance")],
+                   h=70, keys=[(t, math.log(v), c) for t, v, c in k], robust=False)
+        self.curve("lens", "mm", s2, h=50, fmt="{:.0f}", keys=k2, robust=False)
+        looks = sorted(n for n in ch if n.startswith("cam.key.look."))
+        s, k = rows([(n, n[13:], COLORS[j % len(COLORS)]) for j, n in enumerate(looks)] + [("cam.key.sx", "screen x", "#cccccc"), ("cam.key.sy", "screen y", "#888888")])
+        self.curve("aim", "look weights · screen offset", s, h=70, keys=k, robust=False)
 
     # ── assemble ─────────────────────────────────────────────────────────────────────────
     def build(self, thumbs=(), profile=None, band=None, max_actor_rows=6):
@@ -226,6 +270,7 @@ class Sheet:
         self.timeline()
         self.filmstrip(list(thumbs))
         self.spans()
+        self.camera_keys()
         self.curve("camera travel", "a dot per frame", [(travel, CAM, "travel")], h=100, dots=True)
         self.curve("view direction", "degrees", [(yaw, AIM, "yaw"), (pitch, SWEEP, "pitch")], h=90, fmt="{:.0f}°")
         self.curve("subject scale", "log; up = closer", [(scale, ZOOM, "scale")], h=80, dots=True)
@@ -250,8 +295,9 @@ class Sheet:
                 sx, sy = [], []
                 for i, t in enumerate(self.ts):
                     s = K.screen(pos[i], aim[i], lens[i], list(c(t)))
-                    sx.append(s[0] if s else None)
-                    sy.append(s[1] if s else None)
+                    inside = s is not None and abs(s[0]) <= 0.6 and abs(s[1]) <= 0.6  # out of frame: a gap
+                    sx.append(s[0] if inside else None)
+                    sy.append(s[1] if inside else None)
                 xs.append((sx, COLORS[(2 * j) % len(COLORS)], f"{sname} x"))
                 ys_.append((sy, COLORS[(2 * j + 1) % len(COLORS)], f"{sname} y"))
             self.curve("composition", "screen position, frames from centre", xs + ys_, h=90, zero=True, band=(-1 / 6, 1 / 6))

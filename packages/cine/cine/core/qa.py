@@ -4,7 +4,9 @@ until calibrate.py measures reference footage and writes profile.json.
 
     hiccup     the camera slows almost to a stop between two moves and starts again within
                a second: the stop-start feel
-    reversal   it turns or zooms one way, then back the other way within a second
+    reversal   it turns or zooms one way, then snaps back the other way: the rate passes through
+               zero steeply, with real motion on both sides (a camera easing from a push into a
+               pull passes through zero gently, and that is fine)
     jerk       acceleration that changes abruptly (a lurch)
     fast       sweep or zoom faster than the references' fast end
     dead       nothing moves for longer than the references ever sit still
@@ -15,7 +17,8 @@ DEFAULT = {
     "moving": 0.02,      # frames/s (or log-units/s): below this the picture is at rest
     "hiccup_ratio": 0.3,  # a dip below this fraction of the motion either side
     "hiccup_window": 1.2,  # s: the dip and its recovery happen within this
-    "reversal_window": 1.0,
+    "reversal_window": 1.0,  # s: real motion on both sides of the turn, within this
+    "reversal_rate": 0.5,  # frames/s^2 (or log-units/s^2): how steeply the rate passes through zero
     "fast_sweep": 0.6,   # frames/s
     "fast_zoom": 1.2,    # log-units/s
     "jerk": 6.0,         # frames/s^3
@@ -46,21 +49,19 @@ def flags(k, profile=None):
         lo = min(max(left), max(right))
         if lo > p["moving"] * 2 and e[i] < p["hiccup_ratio"] * lo:
             out.append(("hiccup", t[i], f"motion dips to {e[i]:.3f} between moves of {lo:.3f}"))
-    # reversals: the signed horizontal sweep or the zoom changes sign with real motion either side
+    # reversals: the signed pan, tilt or zoom rate crosses zero steeply, with motion either side
     rw = max(2, int(p["reversal_window"] / dt))
+    q = max(1, int(0.25 / dt))
     for key, label in (("sweep_h", "pan"), ("sweep_v", "tilt"), ("zoom", "zoom")):
         s = k[key]
-        i = 0
-        while i < n - 1:
-            if abs(s[i]) > p["moving"] * 2:
-                j = i + 1
-                while j < min(n, i + rw) and seg[j] == seg[i]:
-                    if s[j] * s[i] < 0 and abs(s[j]) > p["moving"] * 2:
-                        out.append(("reversal", t[j], f"{label} reverses within {t[j] - t[i]:.2f}s"))
-                        i = j
-                        break
-                    j += 1
-            i += 1
+        for i in range(q, n - q - 1):
+            if not (s[i] * s[i + 1] < 0 and seg[i - q] == seg[i + q + 1]):
+                continue
+            slope = (s[i + q + 1] - s[i - q]) / ((2 * q + 1) * dt)
+            before = max(abs(s[j]) for j in range(max(0, i - rw), i + 1))
+            after = max(abs(s[j]) for j in range(i + 1, min(n, i + rw + 1)))
+            if abs(slope) > p["reversal_rate"] and min(before, after) > p["moving"] * 2:
+                out.append(("reversal", t[i], f"{label} turns back at {abs(slope):.2f}/s² ({before:.2f} then {after:.2f})"))
     # jerk, speed, stillness
     for i in range(n):
         if abs(k["energy_jerk"][i]) > p["jerk"]:
