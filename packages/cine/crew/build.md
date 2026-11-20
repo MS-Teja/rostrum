@@ -48,7 +48,7 @@ Before any code beyond the take's timing, write the brief at the top of the scen
   ```
 
   Every word that names something has a row. If a row can't be filled, the beat isn't designed yet.
-- **handles**: in and out, each at least the transition on that side plus 0.25 s (director §4). The voice is never under a transition.
+- **handles**: in and out, each at least the transition on that side plus 0.25 s (director §4). The voice is never under a transition. Be generous: a transition can take its own time (1–2 s), and the next scene's action needn't start the instant it opens. Hold the last image after the voice.
 
 Answer in `notes.md`:
 - Read the beats against the take. Is every subject on screen, readable, by its word?
