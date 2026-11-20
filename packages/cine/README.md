@@ -57,6 +57,8 @@ What the films set:
 
 Jerk and the stop-start shape keep cine's defaults: measured from footage, they are dominated by measurement noise.
 
+`profiles/nasa-svs.json` is a reference, not a standard. It comes from seven public-domain NASA Goddard visualizations (8 shots). NASA's animations move more slowly than the films: their fast zoom is 0.31 per second and their fast pan 0.30 frame widths per second. The explainer standard has to come from the creators whose pace we want.
+
 **Sanity check:** read with the film profile, the rejected Voyager previs raises 23–39 flags per scene, and reel scene A raises none.
 
 `--check render.mp4` reads a render the same way. It's for footage and textured scenes: on a sparse star field, the block fit misreads zoom. For a cine scene, the curve-based QA is the truth, since it knows the camera exactly.
