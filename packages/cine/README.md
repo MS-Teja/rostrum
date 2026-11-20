@@ -7,6 +7,7 @@ Status: in progress. Built so far:
 - the motion sheet, the director's map and the scene viewer
 - the camera rig
 - the Blender layer: baking curves into keyframes, and an EEVEE preview with motion blur and bloom
+- calibration on real footage, and the film profile
 
 ## The idea
 
@@ -29,7 +30,35 @@ Status: in progress. Built so far:
 - **dead:** stillness too long
 - **jump:** a hidden cut
 
-The thresholds are provisional until `calibrate` measures reference footage.
+The thresholds come from a profile measured on real footage (below). Without one, provisional defaults apply.
+
+## Calibration
+
+`cine.calibrate` reads films the way cine reads its own cameras:
+1. It streams each film small and grey through ffmpeg and finds the cuts.
+2. Between every pair of frames it measures the picture's pan, tilt and zoom, using phase correlation on a 3×3 block grid with a robust fit.
+3. It writes percentiles over every moving frame as a profile: flag thresholds, plus the reference band shaded on the sheet.
+
+```bash
+python -m cine.calibrate film1.mp4 film2.mkv --out profiles/film.json --name film   # needs numpy and ffmpeg
+python -m cine.see scene.motion.json --profile profiles/film.json --png
+```
+
+`profiles/film.json` comes from four Blender open films, all CC BY: *Big Buck Bunny* (2008), and *Caminandes 1: Llama Drama*, *Caminandes 2: Gran Dillama* and *Caminandes 3: Llamigos* (2013–16). That's 173 shots, 14.5 minutes. Copyright Blender Foundation.
+
+What the films set:
+
+| Measure | Value |
+|---|---|
+| Pan or tilt, fast end (99th percentile) | 0.70 frame widths per second |
+| Zoom, fast end (99th percentile) | 0.39 log-scale per second |
+| Turn-backs, steep end (95th percentile) | 0.51 per second² |
+
+Jerk and the stop-start shape keep cine's defaults: measured from footage, they are dominated by measurement noise.
+
+**Sanity check:** read with the film profile, the rejected Voyager previs raises 23–39 flags per scene, and reel scene A raises none.
+
+`--check render.mp4` reads a render the same way. It's for footage and textured scenes: on a sparse star field, the block fit misreads zoom. For a cine scene, the curve-based QA is the truth, since it knows the camera exactly.
 
 ## The camera
 
@@ -73,6 +102,8 @@ The keys are stored as curves in the motion file, and the sheet draws them as an
 | `cine/core/qa.py` | Flags |
 | `cine/viz/` | The sheet, the map, the viewer, and SVG to PNG (headless Chrome, or ImageMagick) |
 | `cine/see.py` | The command |
+| `cine/calibrate.py` | Measures reference footage into a profile (needs numpy and ffmpeg) |
+| `profiles/film.json` | The profile measured from Blender's open films |
 | `test/cine.test.ts` | Tests (vitest runs the pure-Python core with `python3`) |
 
 `cine/core` and `cine/camera` are pure Python with no dependencies. `cine/blender` runs inside Blender and is GPL-3.0-or-later, as Blender's API requires; the rest is Apache-2.0.
