@@ -23,6 +23,10 @@ Anything left out carries over from the key before, so the moves of the vocabula
   hand over the aim     change look (the camera pans to the new subject as it travels)
   hold                  a key a few seconds later with a small drift (a camera never dies)
 
+Keys are best written as a cinematographer describes the shot, with camera.shot.Framer
+(size, angle, side, lens, view), which solves the numbers against the subject's real shape
+and records the plan as the key's intent.
+
 Every key becomes keyframes on the camera's curves (cam.key.az, .el, .dist, .lens, .sx, .sy
 and a weight per subject), stored in the motion file, so the journey is inspectable as curves.
 az, el and log(dist) travel on minimum-jerk curves; the lens, the look weights and the screen
@@ -96,7 +100,7 @@ class Rig:
         self.fps, self.interp = float(fps), interp
         self.keys = []
 
-    def key(self, t, look=None, dist=None, az=None, el=None, lens=None, screen=None, stop=False, label=None):
+    def key(self, t, look=None, dist=None, az=None, el=None, lens=None, screen=None, stop=False, label=None, intent=None):
         prev = self.keys[-1] if self.keys else {"look": None, "dist": 10.0, "az": 0.0, "el": 10.0, "lens": 35.0, "screen": (0.0, 0.0)}
         look = prev["look"] if look is None else look
         if look is None:
@@ -110,7 +114,7 @@ class Rig:
             a = prev["az"] + ((a - prev["az"] + 180) % 360 - 180)
         k = {"t": float(t), "look": look, "w": w, "dist": prev["dist"] if dist is None else float(dist), "az": a,
              "el": prev["el"] if el is None else float(el), "lens": prev["lens"] if lens is None else float(lens),
-             "screen": tuple(prev["screen"] if screen is None else screen), "stop": stop, "label": label or ""}
+             "screen": tuple(prev["screen"] if screen is None else screen), "stop": stop, "label": label or "", "intent": intent}
         if self.keys and k["t"] <= prev["t"]:
             raise ValueError("keys must be in time order")
         self.keys.append(k)
@@ -159,7 +163,8 @@ class Rig:
         st = [self.state(t, ch) for t in ts]
         ks = self.keys
         spans = [{"lane": "camera", "t0": a["t"], "t1": b["t"], "label": b["label"]} for a, b in zip(ks, ks[1:])]
-        return {"t": ts, "pos": [s[0] for s in st], "aim": [s[1] for s in st], "lens": [s[2] for s in st], "spans": spans, "channels": ch}
+        shots = [dict(k["intent"], t=k["t"]) for k in ks if k.get("intent")]
+        return {"t": ts, "pos": [s[0] for s in st], "aim": [s[1] for s in st], "lens": [s[2] for s in st], "spans": spans, "channels": ch, "shots": shots}
 
 
 def frame_two(a, b, at_a, at_b, dist, lens, near=(0.0, 0.0)):

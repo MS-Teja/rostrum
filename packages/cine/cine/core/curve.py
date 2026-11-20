@@ -302,7 +302,9 @@ class Motion:
     fields: name, fps, t0, t1 (seconds in the video), words [(t, word)], beats [(t0, t1, id)],
     cuts [t] (scene changes inside the span), spans [{lane, t0, t1, label}] (labelled moves),
     camera {"pos": channel, "aim": channel, "lens": channel}, subjects {name: channel},
-    channels {name: Curve}, notes (free text).
+    shapes {name: {points, xform, facing, role}} (see core/shape.py), shots [{t, subject, size,
+    angle, side, lens, motive}] (the shot plan, from camera.shot), brief (the director's brief,
+    text), channels {name: Curve}, notes (free text).
     """
 
     def __init__(self, name, t0, t1, fps=30.0):
@@ -310,6 +312,9 @@ class Motion:
         self.words, self.beats, self.cuts, self.spans = [], [], [], []
         self.camera = {"pos": "cam.pos", "aim": "cam.aim", "lens": "cam.lens"}
         self.subjects = {}
+        self.shapes = {}
+        self.shots = []
+        self.brief = ""
         self.channels = {}
         self.notes = ""
 
@@ -318,7 +323,7 @@ class Motion:
         return [self.t0 + k / self.fps for k in range(n + 1)]
 
     def save(self, path):
-        d = {k: getattr(self, k) for k in ("name", "t0", "t1", "fps", "words", "beats", "cuts", "spans", "camera", "subjects", "notes")}
+        d = {k: getattr(self, k) for k in ("name", "t0", "t1", "fps", "words", "beats", "cuts", "spans", "camera", "subjects", "shapes", "shots", "brief", "notes")}
         d["channels"] = {k: c.to_json() for k, c in self.channels.items()}
         with open(path, "w", encoding="utf-8") as f:
             json.dump(d, f, separators=(",", ":"))
@@ -328,7 +333,7 @@ class Motion:
         with open(path, encoding="utf-8") as f:
             d = json.load(f)
         m = cls(d["name"], d["t0"], d["t1"], d.get("fps", 30))
-        for k in ("words", "beats", "cuts", "spans", "camera", "subjects", "notes"):
+        for k in ("words", "beats", "cuts", "spans", "camera", "subjects", "shapes", "shots", "brief", "notes"):
             if k in d:
                 setattr(m, k, d[k])
         m.channels = {k: Curve.from_json(c) for k, c in d["channels"].items()}

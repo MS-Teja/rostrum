@@ -25,7 +25,11 @@ Size is measured from the subject's real shape (its hull), not a point. It's the
 
 **The subject is whatever the beat is about.** When the beat is "the thrusters fire", the subject is the thruster cluster, and the shot is sized on the cluster. The rest of the craft becomes context.
 
-**Context must not take over.** Geometry that isn't the subject, and is nearer to the camera than the subject, should cover under 25% of the frame. The exception is a deliberate foreground frame, which must be darker or softer than the subject and must be planned as such.
+**Context must not take over.** Two limits, both checked:
+- **Nearer clutter:** geometry that isn't the subject, and is nearer to the camera than the subject, should cover under 25% of the frame. The exception is a deliberate foreground frame, which must be darker or softer than the subject and must be planned as such.
+- **Dominance:** at any depth, no other shape should cover over 35% of the frame *and* more than twice the subject's share.
+
+A "close-up of the thrusters" in which the thruster cluster covers 8% of the frame and the craft around it covers 54% is a shot of the craft. Move in, or use a longer lens, until the subject holds the frame.
 
 **Size changes need room to breathe.** Going from extreme wide to close in one continuous move needs at least 4–5 s at the film profile's zoom limit (0.39 log-scale per second). If the beat is shorter, start the move earlier, or make the change smaller.
 
@@ -143,7 +147,7 @@ Then turn each line into a key with `shot()`, and check the key-pose dailies bef
 ## 10. Checklist (what review looks for)
 
 - Every beat has a subject, a size and a motive, and the frames match the plan.
-- No grazing edge cuts. Non-subject foreground covers under 25% of the frame, unless planned.
+- No grazing edge cuts. Non-subject foreground covers under 25% of the frame, unless planned. Nothing else covers over 35% of the frame and more than twice the subject's share.
 - Lead room on the side the subject faces or moves towards. Headroom 5–15% in medium and close shots.
 - The camera arrives 0.5–1 s before each key action.
 - At least two depth layers in most shots.

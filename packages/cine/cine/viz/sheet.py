@@ -16,6 +16,7 @@ import html
 import math
 import os
 
+from ..core import compose as C
 from ..core import kinematics as K
 from ..core import qa as Q
 
@@ -206,6 +207,58 @@ class Sheet:
             self.add(f'<rect x="{a:.1f}" y="{y + 4}" width="{max(3, b - a):.1f}" height="{h - 8}" fill="{FLAG}" opacity="0.85"><title>{html.escape(kind)} {t0:.2f}s: {html.escape(msg)}</title></rect>')
             self.add(f'<text x="{a + 2:.1f}" y="{y - 2}" fill="{FLAG}" font-size="9">{html.escape(kind)}</text>')
 
+    def shot_size(self):
+        """Shot size and framing of the beat's subject, measured from its real shape: the size row
+        is banded extreme wide .. extreme close, with the shot plan's asks as diamonds."""
+        meas, subj = self.comp
+        size, cx, cy, edge = [], [], [], []
+        for i, sname in enumerate(subj):
+            mm = meas.get(sname, [None] * len(subj))[i] if sname in meas else None
+            ok = mm and mm.get("visible")
+            size.append(math.log10(max(1e-3, mm["size"])) if ok else None)
+            cx.append(mm["cx"] if ok else None)
+            cy.append(mm["cy"] if ok else None)
+            edge.append(mm["margin"] if ok else None)
+        h = 110
+        y = self.row(h)
+        self.label(y, h, "shot size", "the beat's subject, from its shape")
+        self.frame(y, h)
+        lo, hi = math.log10(0.03), math.log10(3.0)
+        Y = lambda v: y + h - (min(hi, max(lo, v)) - lo) / (hi - lo) * h  # noqa: E731
+        shades = ["#1a1f27", "#1f2530"]
+        for j, (name, a, b) in enumerate(C.SIZES):
+            ya, yb = Y(math.log10(max(a, 0.03))), Y(math.log10(min(b, 3.0)))
+            self.add(f'<rect x="{self.x0}" y="{yb:.1f}" width="{self.x1 - self.x0}" height="{ya - yb:.1f}" fill="{shades[j % 2]}"/>')
+            self.add(f'<text x="{self.x0 + 4}" y="{(ya + yb) / 2 + 3:.1f}" fill="{MUTE}" font-size="9">{name}</text>')
+        run = []
+        for t, v, sname in zip(self.ts, size, subj):
+            if v is None:
+                if len(run) > 1:
+                    self.add(f'<polyline points="{" ".join(run)}" fill="none" stroke="{ZOOM}" stroke-width="1.8"/>')
+                run = []
+                continue
+            run.append(f"{self.x(t):.1f},{Y(v):.1f}")
+        if len(run) > 1:
+            self.add(f'<polyline points="{" ".join(run)}" fill="none" stroke="{ZOOM}" stroke-width="1.8"/>')
+        prev = None
+        for t, sname in zip(self.ts, subj):  # who the subject is, written where it changes
+            if sname != prev and sname:
+                self.add(f'<text x="{self.x(t) + 3:.1f}" y="{y + 12}" fill="{INK}" font-size="10">{html.escape(sname)}</text>')
+                prev = sname
+        for shot in getattr(self.m, "shots", []) or []:
+            want = shot.get("size")
+            if isinstance(want, str):
+                a, b = C.size_band(want)
+                v = math.log10(min(2.0, (a + b) / 2 if b < 50 else a * 1.3) if a > 0 else b * 0.6)
+            elif want:
+                v = math.log10(want)
+            else:
+                continue
+            px, py = self.x(shot["t"]), Y(v)
+            self.add(f'<path d="M{px:.1f},{py - 6:.1f} L{px + 6:.1f},{py:.1f} L{px:.1f},{py + 6:.1f} L{px - 6:.1f},{py:.1f} Z" fill="none" stroke="#ffffff" stroke-width="1.5"><title>plan: {html.escape(str(want))}</title></path>')
+        self.curve("framing", "subject centre and nearest-edge margin (frames)",
+                   [(cx, CAM, "centre x"), (cy, AIM, "centre y"), (edge, "#ff8a8a", "margin")], h=80, zero=True, band=(-1 / 6, 1 / 6), robust=False)
+
     def camera_keys(self):
         """The camera's keyed curves (from camera.rig), each key a diamond: the journey as an
         animator's graph editor shows it."""
@@ -229,7 +282,8 @@ class Sheet:
         s2, k2 = rows([("cam.key.lens", "lens", CAM)], math.exp)
         self.curve("camera distance", "metres from the subject (log)", [(list(map(math.log, s[0][0])), ZOOM, "log distance")],
                    h=70, keys=[(t, math.log(v), c) for t, v, c in k], robust=False)
-        self.curve("lens", "mm", s2, h=50, fmt="{:.0f}", keys=k2, robust=False)
+        fov = [f"{v:.0f} mm = {math.degrees(K.hfov(v)):.0f}°" for _, v, _ in k2[:1]]
+        self.curve("lens", "mm" + (f" · {fov[0]} wide" if fov else ""), s2, h=50, fmt="{:.0f}", keys=k2, robust=False)
         looks = sorted(n for n in ch if n.startswith("cam.key.look."))
         s, k = rows([(n, n[13:], COLORS[j % len(COLORS)]) for j, n in enumerate(looks)] + [("cam.key.sx", "screen x", "#cccccc"), ("cam.key.sy", "screen y", "#888888")])
         self.curve("aim", "look weights · screen offset", s, h=70, keys=k, robust=False)
@@ -246,6 +300,10 @@ class Sheet:
         self.k = k
         self.seg = k["segment"]
         self.fl = Q.flags(k, profile)
+        self.comp = None
+        if getattr(m, "shapes", None):
+            self.comp = C.measure(m, self.ts)
+            self.fl = sorted(self.fl + C.flags(m, self.comp), key=lambda f: f[1])
         # camera travel: distance along the path, normalised per stretch
         travel, acc = [0.0], 0.0
         for i in range(1, len(pos)):
@@ -288,7 +346,9 @@ class Sheet:
             else:
                 series = [([float(v) for v in vals], COLORS[j % len(COLORS)], name)]
             self.curve(name, "actor", series, h=70, dots=True)
-        if m.subjects:
+        if self.comp:
+            self.shot_size()
+        elif m.subjects:
             xs, ys_ = [], []
             for j, (sname, ch) in enumerate(m.subjects.items()):
                 c = m.channels[ch]
