@@ -23,7 +23,8 @@ the aim not changing hands within 0.5 s) and only if they last 0.4 s or more:
   lead      the subject faces the near edge with the open frame behind it
   cramped   a medium or close subject with under 2% headroom
   size      at a key, the subject's size is outside the size its shot plan asked for
-  near      the camera is inside a shape's extent (its bounding box, grown 5%)
+  near      the camera is inside a solid shape's extent (its bounding box, grown 5%); drawn,
+            hollow shapes (a ring, a region) are marked "solid": False
   drift     (off by default; rules={"drift": True}) the camera moves for 2 s or more without
             changing the frame. Slow, steady movement under the voice is a good choice; the
             motion checks flag what's actually aimless (qa: wander, fidget)
@@ -248,7 +249,7 @@ def flags(motion, meas=None, rules=None):
         s = subj[i]
         for name, ms in meas.items():
             m = ms[i]
-            if m.get("near"):
+            if m.get("near") and motion.shapes[name].get("solid", True):
                 out.append(("near", t, f"the camera is inside {name}'s extent"))
         if s not in meas or not held[i]:
             continue

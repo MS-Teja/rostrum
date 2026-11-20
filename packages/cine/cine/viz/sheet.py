@@ -300,8 +300,8 @@ class Sheet:
         k = K.measure(self.ts, pos, aim, lens, m.cuts)
         self.k = k
         self.seg = k["segment"]
-        vscale, vspeak = Q.voice_args(m, self.ts)
-        self.fl = Q.flags(k, profile, vscale, vspeak)
+        vscale, vspeak, vzoom = Q.voice_args(m, self.ts, profile)
+        self.fl = Q.flags(k, profile, vscale, vspeak, vzoom)
         self.vscale = vscale
         self.comp = None
         if getattr(m, "shapes", None):

@@ -101,6 +101,14 @@ The voiceover drives the picture (`cine/core/voice.py`):
 
   A deliberate hold of 1.2 s or more isn't a stop-start, and stillness while someone is speaking isn't a dead scene.
 
+## Across scales
+
+`cine/blender/scale.py` handles scenes that span many orders of magnitude, such as a spacecraft, then the solar system, then the nearest stars:
+- **The stage.** Everything lives in true units under one root. Each frame, the root is scaled so the camera sits 10 units from its aim, so a million-AU scene is float-safe, with the true perspective.
+- **Lines** are a constant width on screen at every point, even where they pass the camera. Geometry Nodes sets each point's radius from its distance to the camera. A line can be drawn partway (`reveal`).
+- **Dots** keep a minimum pixel size, and **labels** face the camera at a fixed pixel height.
+- **Zoom-throughs.** A key whose motive is `"zoom-through"` hands the aim across scales in proportion to the view, so the subjects at both scales slide smoothly instead of being flung. Its zoom limit lifts to about one power of ten per 0.8 s, still scaled by the voice.
+
 ## The camera
 
 A scene's camera journey is a handful of poses at times, and the camera travels through them on minimum-jerk curves: the path a skilled hand takes through via points.
@@ -145,6 +153,7 @@ The keys are stored as curves in the motion file, and the sheet draws them as an
 | `cine/core/look.py` | Exposure checks by planned look |
 | `cine/core/voice.py` | The voiceover: word times, the pace curve, the words lane |
 | `cine/blender/hull.py` | Exports subject shapes from real meshes |
+| `cine/blender/scale.py` | The scale stage: float-safe scenes across orders of magnitude, constant-width lines, dots and labels |
 | `cine/blender/dailies.py`, `cine/dailies.py` | Key-pose stills, masks, look measures, occlusion, and the dailies pack |
 | `crew/` | The four craft guides |
 | `cine/blender/bake.py` | Bakes a motion file into Blender: a camera and any property, keyed every frame |

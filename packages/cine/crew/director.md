@@ -49,7 +49,7 @@ Choose one per boundary and write it in both scenes' briefs:
 |---|---|---|
 | match cut | Two scenes share an object or a shape | Align the shared object's screen position and size within 5% of the frame across the cut |
 | push-through | Going inside something | Fly into an object until it fills the frame, and come out in the next scene |
-| zoom-through | A change of scale (craft to solar system to stars) | One continuous move across scales; the scenes overlap and blend |
+| zoom-through | A change of scale (craft to solar system to stars) | One continuous move across scales. Mark the key's motive `"zoom-through"`: the aim crosses scales in proportion to the view, and the zoom may run up to about one power of ten per 0.8 s, gliding from rest to rest. Hold at each scale long enough to read it (1.2 s or more) |
 | whip pan | An energetic change of place | Fast pan with motion blur, matched in direction on both sides |
 | light wipe | A change driven by light (the Sun, a signal) | A bright element crosses the frame and reveals the next scene |
 | matched dissolve | Change of time at the same place | 0.5 s dissolve with the composition matched |

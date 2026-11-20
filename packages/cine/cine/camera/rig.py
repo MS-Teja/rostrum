@@ -36,7 +36,10 @@ a zoom never overshoots and the aim never swings past a subject. Rig(interp="min
 the bearing the minimum-jerk spline instead (continuous to the fourth derivative, but it may
 swing past keys). `handover` on a
 key that changes the look sets when the aim changes hands (0.75: late, once the new subject
-is big). No dependencies.
+is big). In a zoom-through (a key whose intent's motive is "zoom-through", across a change of
+scale), the aim travels in proportion to the view (the new subject's share grows with the
+zoom's progress times the current distance over the far end's), so the subjects at both scales
+slide smoothly instead of being flung by a far-off aim point. No dependencies.
 """
 
 import math
@@ -141,10 +144,43 @@ class Rig:
             "cam.key.sy": Curve(keys=[(k["t"], k["screen"][1]) for k in ks], interp=mono, stops=stops),
         }
         used = sorted({n for k in ks for n in k["w"]})
+        dist = ch["cam.key.dist"]
+
+        def zoom_through(a, b):
+            return a is not None and (b.get("intent") or {}).get("motive") == "zoom-through" and abs(math.log(b["dist"] / a["dist"])) > 1.0
+
+        def log_progress(a, b, t):
+            la, lb = math.log(a["dist"]), math.log(b["dist"])
+            return min(1.0, max(0.0, (dist(t) - la) / (lb - la)))
+
+        for name in ("cam.key.sx", "cam.key.sy"):  # in a zoom-through the framing follows the scale too
+            idx = 0 if name.endswith("sx") else 1
+            pts = []
+            for a, b in zip([None] + ks[:-1], ks):
+                if zoom_through(a, b) and a["screen"][idx] != b["screen"][idx]:
+                    for q in range(1, 12):
+                        tq = a["t"] + (b["t"] - a["t"]) * q / 12
+                        pts.append((tq, a["screen"][idx] + (b["screen"][idx] - a["screen"][idx]) * log_progress(a, b, tq)))
+                pts.append((b["t"], b["screen"][idx]))
+            if len(pts) > 1:
+                ch[name] = Curve(keys=pts, interp=mono, stops=stops)
         for n in used:
             pts = []
             for a, b in zip([None] + ks[:-1], ks):
-                if a is not None and a["w"] != b["w"] and abs(b["handover"] - 0.5) > 1e-6:
+                if zoom_through(a, b) and a["w"] != b["w"]:
+                    # Across scales the aim must travel in proportion to the view: a frame twice as
+                    # wide can take a shift twice as big. So the new subject's share grows as the
+                    # zoom's progress u times the current distance over the far end's (zooming
+                    # out), and the old subject slides smoothly to its final place on screen
+                    # instead of being thrown by a far-off aim point. Zooming in mirrors it.
+                    wa, wb = a["w"].get(n, 0.0), b["w"].get(n, 0.0)
+                    for q in range(1, 24):
+                        tq = a["t"] + (b["t"] - a["t"]) * q / 24
+                        u = log_progress(a, b, tq)
+                        d = math.exp(dist(tq))
+                        share = u * d / b["dist"] if b["dist"] > a["dist"] else 1 - (1 - u) * d / a["dist"]
+                        pts.append((tq, wa + (wb - wa) * min(1.0, max(0.0, share))))
+                elif a is not None and a["w"] != b["w"] and abs(b["handover"] - 0.5) > 1e-6:
                     # the aim changes hands at `handover` of the way between the keys, not halfway
                     wa, wb = a["w"].get(n, 0.0), b["w"].get(n, 0.0)
                     h = min(0.9, max(0.1, b["handover"]))
@@ -176,7 +212,9 @@ class Rig:
         ts = [t0 + k / self.fps for k in range(n + 1)]
         st = [self.state(t, ch) for t in ts]
         ks = self.keys
-        spans = [{"lane": "camera", "t0": a["t"], "t1": b["t"], "label": b["label"]} for a, b in zip(ks, ks[1:])]
+        spans = [dict({"lane": "camera", "t0": a["t"], "t1": b["t"], "label": b["label"]},
+                      **({"rule": "zoom-through"} if (b.get("intent") or {}).get("motive") == "zoom-through" else {}))
+                 for a, b in zip(ks, ks[1:])]
         shots = [dict(k["intent"], t=k["t"]) for k in ks if k.get("intent")]
         return {"t": ts, "pos": [s[0] for s in st], "aim": [s[1] for s in st], "lens": [s[2] for s in st], "spans": spans, "channels": ch, "shots": shots}
 

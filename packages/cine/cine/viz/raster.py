@@ -24,7 +24,7 @@ def png(svg_text, size, out):
         with tempfile.TemporaryDirectory() as d:
             page = os.path.join(d, "page.html")
             with open(page, "w", encoding="utf-8") as f:
-                f.write(f'<!doctype html><html><body style="margin:0;background:#111317">{svg_text}</body></html>')
+                f.write(f'<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#111317">{svg_text}</body></html>')
             subprocess.run([exe, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
                             f"--window-size={int(w)},{int(h)}", f"--screenshot={os.path.abspath(out)}", "file://" + page],
                            capture_output=True, timeout=180)

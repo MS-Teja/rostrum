@@ -419,3 +419,29 @@ print(json.dumps({"still": still[0], "creep": creep[0], "creep_backwards": creep
     expect(got.creep_backwards).toBe(0);
   });
 });
+
+describe("zoom-through", () => {
+  it("hands the aim across scales in proportion to the view, so neither subject is flung out", () => {
+    const [through, plain, lift] = py(`
+import json
+from cine.camera import rig as R
+from cine.core import kinematics as K, qa as Q
+def run(motive):
+    rig = R.Rig({"near": [0, 0, 0], "far": [1e5, 0, 0]}, fps=30)
+    rig.key(0, look="near", dist=50, az=0, el=10, lens=35, stop=True, intent={"motive": "hold"})
+    rig.key(1, stop=True, intent={"motive": "hold"})
+    rig.key(5, look="far", dist=3e5, az=0, el=10, stop=True, intent={"motive": motive})
+    cam = rig.sample(0, 5)
+    k = K.measure(cam["t"], cam["pos"], cam["aim"], cam["lens"])
+    return max(k["sweep"]), cam["spans"]
+a, spans = run("zoom-through")
+b, _ = run("relate")
+class M: pass
+m = M(); m.spans = spans; m.channels = {}
+_, _, zs = Q.voice_args(m, [3.0], {"fast_zoom": 0.6})
+print(json.dumps([a, b, zs[0]]))`);
+    expect(through).toBeLessThan(1.5);
+    expect(plain).toBeGreaterThan(through * 5);
+    expect(lift).toBeCloseTo(3.0 / 0.6, 6);
+  });
+});

@@ -38,9 +38,10 @@ DEFAULT = {
 }
 
 
-def flags(k, profile=None, scale=None, speaking=None):
+def flags(k, profile=None, scale=None, speaking=None, zoom_scale=None):
     """scale: per-frame multiplier for the speed limits (the voice's pace); speaking: per-frame
-    True while the voiceover is talking (for the dead check)."""
+    True while the voiceover is talking (for the dead check); zoom_scale: a further per-frame
+    multiplier for the zoom limit alone (a planned zoom-through across scales)."""
     p = dict(DEFAULT)
     p.update(profile or {})
     t, e, seg = k["t"], k["energy"], k["segment"]
@@ -48,6 +49,7 @@ def flags(k, profile=None, scale=None, speaking=None):
     if n < 3:
         return []
     sc = list(scale) if scale is not None else [1.0] * n
+    zs = list(zoom_scale) if zoom_scale is not None else [1.0] * n
     dt = (t[-1] - t[0]) / (n - 1)
     out = []
     win = max(2, int(p["hiccup_window"] / dt))
@@ -90,12 +92,12 @@ def flags(k, profile=None, scale=None, speaking=None):
                 out.append(("reversal", t[i], f"{label} turns back at {abs(slope):.2f}/s² ({before:.2f} then {after:.2f})"))
     # jerk, speed, stillness
     for i in range(n):
-        if abs(k["energy_jerk"][i]) > p["jerk"]:
-            out.append(("jerk", t[i], f"jerk {k['energy_jerk'][i]:.1f}"))
+        if abs(k["energy_jerk"][i]) > p["jerk"] * sc[i] * zs[i]:
+            out.append(("jerk", t[i], f"jerk {k['energy_jerk'][i]:.1f} (limit {p['jerk'] * sc[i] * zs[i]:.1f})"))
         if k["sweep"][i] > p["fast_sweep"] * sc[i]:
             out.append(("fast", t[i], f"sweep {k['sweep'][i]:.2f} frames/s (limit {p['fast_sweep'] * sc[i]:.2f} at this pace)"))
-        if abs(k["zoom"][i]) > p["fast_zoom"] * sc[i]:
-            out.append(("fast", t[i], f"zoom {k['zoom'][i]:.2f}/s (limit {p['fast_zoom'] * sc[i]:.2f} at this pace)"))
+        if abs(k["zoom"][i]) > p["fast_zoom"] * sc[i] * zs[i]:
+            out.append(("fast", t[i], f"zoom {k['zoom'][i]:.2f}/s (limit {p['fast_zoom'] * sc[i] * zs[i]:.2f} at this pace)"))
     # wander: direction changes (with real motion either side) twice or more within a window
     ww = max(2, int(p["wander_window"] / dt))
     turns = []
@@ -173,14 +175,23 @@ def merge(fl, dt, gap=0.25):
     return [(a, t0, msg, t1) for a, t0, msg, t1 in sorted(out, key=lambda f: f[1])]
 
 
-def voice_args(motion, times):
-    """(scale, speaking) for flags() from a motion file: the voice's pace (channel "voice.pace")
-    and whether a word is being spoken at each frame (motion.words, with the take's end times in
-    channel "voice.speaking" if present)."""
+ZOOM_THROUGH = 3.0  # log-scale/s: a planned zoom-through may run about one power of ten per 0.8 s
+
+
+def voice_args(motion, times, profile=None):
+    """(scale, speaking, zoom_scale) for flags() from a motion file: the voice's pace (channel
+    "voice.pace"), whether a word is being spoken (channel "voice.speaking"), and the zoom limit's
+    lift during planned zoom-throughs (camera spans with "rule": "zoom-through")."""
     scale = speaking = None
     ch = getattr(motion, "channels", {})
     if "voice.pace" in ch:
         scale = [float(ch["voice.pace"](t)) for t in times]
     if "voice.speaking" in ch:
         speaking = [ch["voice.speaking"](t) > 0.5 for t in times]
-    return scale, speaking
+    zoom_scale = None
+    spans = [s for s in getattr(motion, "spans", []) or [] if s.get("rule") == "zoom-through"]
+    if spans:
+        base = (profile or {}).get("fast_zoom", DEFAULT["fast_zoom"])
+        lift = max(1.0, ZOOM_THROUGH / base)
+        zoom_scale = [lift if any(s["t0"] <= t <= s["t1"] for s in spans) else 1.0 for t in times]
+    return scale, speaking, zoom_scale
