@@ -1,0 +1,23 @@
+{
+ "name": "explainer",
+ "note": "Provisional, set by eye (Teja, 2026-11-20): the film profile's speed limits x1.5 for an explainer's pace. Not measured: replace it with a measured profile if reference clips are ever collected. Jerk, the stop-start shape and stillness keep the film profile's values.",
+ "flags": {
+  "fast_sweep": 1.05,
+  "fast_zoom": 0.589,
+  "reversal_rate": 0.76,
+  "jerk": 6.0,
+  "dead": 4.0
+ },
+ "bands": {
+  "sweep": [
+   0.011572389031008453,
+   0.255
+  ],
+  "zoom": [
+   -0.103,
+   0.067
+  ]
+ },
+ "derived_from": "film",
+ "scale": 1.5
+}
