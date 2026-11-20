@@ -86,7 +86,8 @@ def contact(motion, shots, comp_at, flags_at, out, cols=3):
         plan = next((p for p in (motion.shots or []) if abs(p["t"] - s["t"]) < 1e-3), None)
         lk = s.get("look", {})
         lk_txt = (f'exposure {lk["median"]:.2f} · contrast {lk["contrast"]:.1f}:1 · spread {lk["spread"]:.2f} · crushed {lk["crushed"]:.0%}'
-                  + (f' · look: {s["planned_look"]}' if s.get("planned_look", "normal") != "normal" else "")) if lk.get("subject_visible") else "subject not in frame"
+                  + (f' · look: {s["planned_look"]}' if s.get("planned_look", "normal") != "normal" else "")) if lk.get("subject_visible") else (
+                  "look: diagram (drawn on black, not measured)" if s.get("planned_look") == "diagram" else "look: subject too small to measure")
         line1 = f'{s["t"]:.2f} s · {tag} · {s["subject"]} · {size}' + (f" (plan: {plan.get('size')})" if plan and plan.get("size") else "")
         parts.append(f'<text x="{x0}" y="{y0 + ch + 15}" fill="#e9e7e2" font-size="12" font-weight="600">{html.escape(line1)}</text>')
         parts.append(f'<text x="{x0}" y="{y0 + ch + 30}" fill="#b9bcc3" font-size="11">{html.escape(lk_txt)}</text>')

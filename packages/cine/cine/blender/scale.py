@@ -17,6 +17,7 @@ point. Perspective doesn't care about scale, so the picture is exactly the true 
   line    a curve a constant width on screen at every point (Geometry Nodes: each point's radius
           is its distance to the camera times a width factor); draw it partway with `reveal`
   label   text facing the camera at a constant pixel height, offset in pixels from its anchor
+  ring    a marker ring of constant pixel radius, facing the camera (for things too small to see)
 The pixel sizes assume the render's width (render.resolution_x).
 """
 
@@ -173,6 +174,37 @@ class ScaleStage:
                 e_in.keyframe_insert("value", frame=f)
         bake._linear(o)
         return o
+
+    def ring(self, name, centre, px=7.0, width_px=1.4, colour=(1, 1, 1), strength=3.0, visible=None):
+        """A ring `px` pixels in radius round `centre`, facing the camera, `width_px` thick: a
+        marker for something too small to see at this scale (declare it as drawn)."""
+        bpy.ops.mesh.primitive_torus_add(major_radius=1.0, minor_radius=0.5 * width_px / px, major_segments=48, minor_segments=8, location=(0, 0, 0))
+        o = bpy.context.active_object
+        o.name = name
+        o.data.materials.append(look.emissive(name, colour, strength))
+        o.visible_shadow = False
+        o.parent = self.root
+        o.rotation_mode = "QUATERNION"
+        o.location = Vector(centre)
+        for i, (f, t) in enumerate(self.frames):
+            fw, right, up = self.basis(i)
+            r = px * self.per_px(i, o.location)
+            v = 1.0 if visible is None else max(0.0, min(1.0, visible(t)))
+            o.rotation_quaternion = Matrix((right, up, -fw)).transposed().to_quaternion()
+            o.scale = (r * v + 1e-30,) * 3
+            o.keyframe_insert("rotation_quaternion", frame=f)
+            o.keyframe_insert("scale", frame=f)
+        bake._linear(o)
+        return o
+
+    def fade_out(self, t0, t1, stops=8.0):
+        """Fade the whole picture to black between t0 and t1 (by exposure)."""
+        vs = self.scene.view_settings
+        base = vs.exposure
+        for f, t in self.frames:
+            u = 0.0 if t <= t0 else 1.0 if t >= t1 else (t - t0) / (t1 - t0)
+            vs.exposure = base - stops * u * u
+            vs.keyframe_insert("exposure", frame=f)
 
     def label(self, text, anchor, px=16.0, offset=(0.0, 0.0), colour=(0.92, 0.93, 0.95), strength=1.6, visible=None, font=None,
               align="CENTER"):

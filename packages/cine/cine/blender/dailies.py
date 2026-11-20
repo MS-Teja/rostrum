@@ -149,6 +149,8 @@ def render(scene, motion, times, out_dir, subject, other=(), hide=(), res=(640, 
     for s in shots:
         s["look"] = measure_look(s["still"], s["mask"])
         s["planned_look"] = LK.planned(motion.shots, s["subject"], s["t"])
+        if all(p_.get("look") == "diagram" for p_ in (motion.shots or [])) and motion.shots:
+            s["planned_look"] = "diagram"
         s["look_flags"] = LK.flags(s["look"], s["planned_look"])
         if s["occluded"] is not None and s["occluded"] > 0.15:
             s["look_flags"].append(("occluded", f"{s['occluded']:.0%} of {s['subject']} blocked by something in front"))

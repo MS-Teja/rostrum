@@ -8,6 +8,8 @@ A shot plan may declare its look (camera.shot: look=...):
               contrast at least 2.5:1, crushed under 50%
   "silhouette" a subject against the light: its rim must read (90th percentile at least 0.30,
               5:1 against the background); median and crush aren't judged
+  "diagram"   drawn dots, lines and labels glowing on black: not measured by these rules (they're
+              emissive by construction); the report says so instead of showing an empty pass
 """
 
 RULES = {
@@ -19,6 +21,8 @@ RULES = {
 
 def flags(m, look="normal"):
     """[(kind, message)] for one still's look measures under the planned look."""
+    if look == "diagram":
+        return []
     r = RULES.get(look or "normal", RULES["normal"])
     out = []
     if not m.get("subject_visible"):
