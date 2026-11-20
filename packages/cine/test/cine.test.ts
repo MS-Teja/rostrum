@@ -459,7 +459,8 @@ m.channels = {"cam.pos": Curve(keys=[(0, [0, -10, 0]), (2, [0, -10, 0])], interp
               "cam.lens": Curve(keys=[(0, 35.0), (2, 35.0)], interp="linear")}
 m.actors = {
     "seen": A.actor(P.track([(-1, 0, 0), (1, 0, 0)], 0.0, 2.0), size=0.1, word=1.0),
-    "leaves": A.actor(P.track([(0, 0, 0), (40, 0, 0)], 0.0, 2.0), size=0.1),
+    "leaves": A.actor(P.track([(0, 0, 0), (80, 0, 0)], 0.0, 2.0), size=0.1),
+    "enters": A.actor(P.track([(-20, 0, 0), (0, 0, 0)], 0.0, 2.0), size=0.1, word=1.9),
     "behind": A.actor(P.track([(0, -20, 0), (1, -20, 0)], 0.0, 2.0), size=0.1),
     "late": A.actor(P.track([(0, 0, 0), (0.5, 0, 0), (30, 0, 0)], 0.0, 2.0), size=0.1, word=1.9),
     "speck": A.actor(P.track([(0, 0, 0), (0.1, 0, 0)], 0.0, 2.0), size=0.002),
@@ -468,9 +469,10 @@ print(json.dumps([[f[0], f[2]] for f in A.flags(m)]))`);
     const by = (name: string) => got.filter(([, msg]: string[]) => msg.startsWith(name + " ")).map(([k]: string[]) => k);
     expect(by("seen")).toEqual([]);
     expect(by("leaves")).toEqual(["unseen"]);
+    expect(by("enters")).toEqual([]);
     expect(by("behind")).toEqual(["unseen"]);
     expect(by("late")).toEqual(["unseen"]);
-    expect(got.find(([, msg]: string[]) => msg.startsWith("late "))[1]).toMatch(/out at its word/);
+    expect(got.find(([, msg]: string[]) => msg.startsWith("late "))[1]).toMatch(/out of frame at its word/);
     expect(by("speck")).toEqual(["tiny"]);
   });
 });

@@ -21,6 +21,8 @@ sys.path[:0] = [CINE]
 
 from cine.camera import rig as R  # noqa: E402
 from cine.camera import shot as SHOT  # noqa: E402, F401
+from cine.core import actors as A  # noqa: E402
+from cine.core import path as P  # noqa: E402
 from cine.core import shape as SH  # noqa: E402
 from cine.core.curve import Curve, Motion  # noqa: E402
 from cine.core.voice import Voice  # noqa: E402
@@ -40,6 +42,9 @@ W = {"first": V.at("TODO")}  # the words the picture rides: key by these, never 
 SUBJECTS = {"hero": (0.0, 0.0, 0.0)}  # TODO: aim points by name
 SHAPES = {"hero": {"points": SH.box([-1, -1, -1], [1, 1, 1]), "role": "subject"}}  # TODO: real extents
 HERO = ("hero",)  # TODO: name prefixes of the hero object's parts (the --proof render shows only these)
+# actors that travel a path (name, points, t0, t1, radius, its word): rendered by actors.pulse_along
+# and registered in plan(), so the visibility checks see each one (build.md, gate 6)
+PULSES = []  # TODO: e.g. ("signal", [(0, -3, 1), (0, 3, 1)], W["first"], W["first"] + 1.5, 0.03, W["first"])
 
 BRIEF = f"""scene      {NAME}
 purpose    TODO: what this scene does in the video, in one sentence
@@ -81,6 +86,7 @@ def plan():
     m.channels["voice.speaking"] = Curve(samples=[1.0 if V.speaking(t) else 0.0 for t in times], fps=FPS, t0=T0)
     m.spans = cam["spans"]
     m.shapes = {k: dict(v) for k, v in SHAPES.items()}
+    m.actors = {n: A.actor(P.track(pts, t0, t1, FPS), size=r, word=w) for n, pts, t0, t1, r, w in PULSES}
     m.brief = BRIEF
     m.shots = cam.get("shots", [])
     os.makedirs(OUT, exist_ok=True)
@@ -93,7 +99,7 @@ def build(m):
     global bpy
     import bpy
 
-    from cine.blender import bake, look
+    from cine.blender import actors, bake, look
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
@@ -102,6 +108,8 @@ def build(m):
     # TODO: the hero (named with a HERO prefix), the set, the lights, the actors
     bpy.ops.mesh.primitive_cube_add(size=2.0)
     bpy.context.active_object.name = "hero"
+    for n, pts, t0, t1, r, _ in PULSES:
+        actors.pulse_along(scene, m, pts, t0, t1, px_size=r, name=n)
     cam = bake.camera(scene, m)
     return scene, cam
 
@@ -139,7 +147,7 @@ if __name__ == "__main__":
         else:
             out = os.path.join(OUT, "dailies")
             shots = BD.render(scene, m, D.times_for(m), out, subject=hero, other=others)
-            D.pack(m, shots, out, profile=os.path.join(CINE, "profiles", PROFILE + ".json"), motion_path=os.path.join(OUT, NAME + ".motion.json"))
+            D.pack(m, shots, out, hidden=BD.hidden(scene, m), profile=os.path.join(CINE, "profiles", PROFILE + ".json"), motion_path=os.path.join(OUT, NAME + ".motion.json"))
             print("dailies ->", out)
     if "--render" in argv:
         scene, cam = build(m)

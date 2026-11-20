@@ -169,12 +169,13 @@ def fade_material(name, colour, strength, softness=2.0, opacity=1.0):
 def pulse_along(scene, motion, points, t0, t1, parent=None, px_size=0.035, tail=4, colour=(0.75, 0.9, 1.0), strength=12.0,
                 ease="profile:0.15:0.25", name="pulse"):
     """A glowing dot travelling the polyline `points` from t0 to t1 (by length, eased), with a
-    short tail of smaller, dimmer dots behind it; invisible before and after."""
-    from ..core.curve import Curve
-    from ..core.path import Path
+    short tail of smaller, dimmer dots behind it; invisible before and after. Its objects are
+    named "<name>.<k>". Register the same trip as an actor so the checks can see it:
+    `motion.actors[name] = core.actors.actor(core.path.track(points, t0, t1, fps, ease), px_size)`
+    (the same timing: both go through core.path.along)."""
+    from ..core.path import along
 
-    path = Path(points)
-    prog = Curve(keys=[(t0, 0.0), (t1, 1.0)], interp="eased", ease=ease)
+    pos = along(points, t0, t1, ease)
     mat = _fade_material(name + ".glow", colour, strength, softness=1.2)
     objs = []
     for k in range(tail + 1):
@@ -193,7 +194,7 @@ def pulse_along(scene, motion, points, t0, t1, parent=None, px_size=0.035, tail=
         for f, t in keyed:
             tt = t - lag
             on = t0 <= tt <= t1
-            o.location = Vector(path(min(1.0, max(0.0, prog(tt)))))
+            o.location = Vector(pos(tt))
             o.scale = (r if on else 1e-4,) * 3
             o.color = ((1 - 0.2 * k) if on else 0.0, 0, 0, 1)
             o.keyframe_insert("location", frame=f)

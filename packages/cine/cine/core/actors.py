@@ -6,7 +6,9 @@
 
 An actor's track is where it is at each frame of its life, [[t, x, y, z], ...], and its size is
 its radius in metres. From the camera, over the actor's life:
-  unseen   out of frame or behind the camera for more than a fifth of its life (or at its word)
+  unseen   out of frame (or behind the camera) at its word, or in frame for too short a time to
+           read: under 0.5 s, or under half its life if it lives less than a second. Entering
+           from off-screen is fine; being off-screen when the voice names it isn't.
   tiny     smaller than 0.006 of the frame's width across for more than a fifth of its life
 Hidden (something solid between it and the camera) needs the scene's geometry: the dailies
 ray-test the same track (blender/dailies.hidden). Scene C's first pulse ran on top of a cable
@@ -18,7 +20,7 @@ import math
 
 from . import kinematics as K
 
-RULES = {"min_size": 0.006, "max_bad": 0.2}
+RULES = {"min_size": 0.006, "max_bad": 0.2, "min_seen": 0.5}
 
 
 def actor(track, size, word=None):
@@ -51,14 +53,18 @@ def flags(motion, rules=None):
         if not rows:
             continue
         t0, t1 = rows[0][0], rows[-1][0]
-        unseen = [t for t, ok, _ in rows if not ok]
+        dt = 1.0 / motion.fps
+        life, seen = len(rows) * dt, sum(dt for _, ok, _ in rows if ok)
         tiny = [(t, s) for t, ok, s in rows if ok and s < r["min_size"]]
         at_word = None
         if a.get("word") is not None:
             at_word = min(rows, key=lambda row: abs(row[0] - a["word"]))
-        if len(unseen) > r["max_bad"] * len(rows) or (at_word is not None and not at_word[1]):
-            when = f"; out at its word ({a['word']:.2f} s)" if at_word is not None and not at_word[1] else ""
-            out.append(("unseen", unseen[0] if unseen else t0, f"{name} is out of frame for {len(unseen) / len(rows):.0%} of its life{when}", t1))
+        out_at_word = at_word is not None and not at_word[1]
+        too_brief = seen < min(r["min_seen"], 0.5 * life)
+        if out_at_word or too_brief:
+            when = f"; out of frame at its word ({a['word']:.2f} s)" if out_at_word else ""
+            first = next((t for t, ok, _ in rows if not ok), t0)
+            out.append(("unseen", first, f"{name} is in frame for {seen:.2f} s of its {life:.2f} s life{when}", t1))
         if len(tiny) > r["max_bad"] * len(rows):
             smallest = min(s for _, s in tiny)
             out.append(("tiny", tiny[0][0], f"{name} is under {r['min_size']} of the frame wide for {len(tiny) / len(rows):.0%} of its life "
