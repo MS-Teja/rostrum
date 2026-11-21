@@ -298,7 +298,8 @@ class Sheet:
         pos = [list(m.channels[cam["pos"]](t)) for t in self.ts]
         aim = [list(m.channels[cam["aim"]](t)) for t in self.ts]
         lens = [float(m.channels[cam["lens"]](t)) for t in self.ts]
-        k = K.measure(self.ts, pos, aim, lens, m.cuts)
+        piv = [list(m.channels[cam["pivot"]](t)) for t in self.ts] if cam.get("pivot") in m.channels else None
+        k = K.measure(self.ts, pos, aim, lens, m.cuts, pivot=piv)
         self.k = k
         self.seg = k["segment"]
         vscale, vspeak, vzoom = Q.voice_args(m, self.ts, profile)

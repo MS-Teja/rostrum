@@ -161,7 +161,8 @@ def _drift(motion, times, meas, subj, r):
     pos = [list(ch[cam["pos"]](t)) for t in times]
     aim = [list(ch[cam["aim"]](t)) for t in times]
     lens = [float(ch[cam["lens"]](t)) for t in times]
-    k = K.measure(times, pos, aim, lens, getattr(motion, "cuts", ()))
+    piv = [list(ch[cam["pivot"]](t)) for t in times] if cam.get("pivot") in ch else None
+    k = K.measure(times, pos, aim, lens, getattr(motion, "cuts", ()), pivot=piv)
     dt = 1 / motion.fps
     w = int(r["drift_window"] / dt)
     out = []

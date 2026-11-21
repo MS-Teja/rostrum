@@ -78,8 +78,9 @@ def plan():
     cam = rig.sample(T0, T1)
     times = cam["t"]
     m = Motion(NAME, T0, T1, FPS)
-    for k in ("pos", "aim", "lens"):
+    for k in ("pos", "aim", "lens", "pivot"):  # pivot: what the camera follows (motion is measured relative to it)
         m.channels["cam." + k] = Curve(samples=cam[k], fps=FPS, t0=T0)
+    m.camera["pivot"] = "cam.pivot"
     m.channels.update(cam["channels"])
     m.words = V.lane()
     m.channels["voice.pace"] = Curve(samples=V.pace(times), fps=FPS, t0=T0)

@@ -50,10 +50,13 @@ def angle(a, b):
     return math.acos(c)
 
 
-def measure(times, pos, aim, lens, cuts=()):
+def measure(times, pos, aim, lens, cuts=(), pivot=None):
     """Per-frame kinematics. Returns dict of lists, each len(times): sweep, sweep_h (signed,
     horizontal), sweep_v (signed, vertical), zoom, energy, and their acceleration and jerk
-    (suffix _acc, _jerk), plus 'segment' (index of the uncut stretch each frame belongs to)."""
+    (suffix _acc, _jerk), plus 'segment' (index of the uncut stretch each frame belongs to).
+    `pivot`: the point the camera follows, per frame (the rig's look subject). The camera's travel
+    is then measured relative to it, so following a moving subject (a planet along its orbit) at a
+    steady distance reads as still, as it looks, not as a zoom or a sideways slide."""
     n = len(times)
     dt = (times[-1] - times[0]) / (n - 1) if n > 1 else 1 / 30
     seg, s = [], 0
@@ -81,6 +84,8 @@ def measure(times, pos, aim, lens, cuts=()):
         d = norm(sub(aim[i], pos[i])) or 1e-9
         u = unit(sub(aim[i], pos[i]))
         v = [(pos[b][k] - pos[a][k]) / span for k in range(3)]
+        if pivot is not None:
+            v = [v[k] - (pivot[b][k] - pivot[a][k]) / span for k in range(3)]
         side = [v[k] - dot(v, u) * u[k] for k in range(3)]
         par = norm(side) / d  # rad/s
         # signed horizontal/vertical components of the view rotation

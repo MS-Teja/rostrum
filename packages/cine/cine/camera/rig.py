@@ -201,6 +201,18 @@ class Rig:
             ch["cam.key.look." + n] = Curve(keys=pts, interp=mono, stops=stops)
         return ch
 
+    def pivot(self, t, ch=None):
+        """The point the camera follows at t: its look subjects, blended by weight."""
+        ch = ch or self.curves()
+        tot, piv = 0.0, [0.0, 0.0, 0.0]
+        for name, c in ch.items():
+            if name.startswith("cam.key.look."):
+                w = max(0.0, c(t))
+                s = _pt(self.subjects[name[13:]], t)
+                piv = [piv[i] + w * s[i] for i in range(3)]
+                tot += w
+        return [x / (tot or 1.0) for x in piv]
+
     def state(self, t, ch=None):
         ch = ch or self.curves()
         tot, piv = 0.0, [0.0, 0.0, 0.0]
@@ -228,7 +240,8 @@ class Rig:
                       **({"rule": (b.get("intent") or {}).get("motive")} if (b.get("intent") or {}).get("motive") in ("zoom-through", "push-through") else {}))
                  for a, b in zip(ks, ks[1:])]
         shots = [dict(k["intent"], t=k["t"]) for k in ks if k.get("intent")]
-        return {"t": ts, "pos": [s[0] for s in st], "aim": [s[1] for s in st], "lens": [s[2] for s in st], "spans": spans, "channels": ch, "shots": shots}
+        return {"t": ts, "pos": [s[0] for s in st], "aim": [s[1] for s in st], "lens": [s[2] for s in st], "pivot": [self.pivot(t, ch) for t in ts],
+                "spans": spans, "channels": ch, "shots": shots}
 
 
 def frame_two(a, b, at_a, at_b, dist, lens, near=(0.0, 0.0)):

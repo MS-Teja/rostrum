@@ -122,7 +122,8 @@ def pack(motion, shots, out_dir, profile=None, motion_path=None, hidden=None):
     pos = [list(ch[cam["pos"]](t)) for t in times]
     aim = [list(ch[cam["aim"]](t)) for t in times]
     lens = [float(ch[cam["lens"]](t)) for t in times]
-    k = K.measure(times, pos, aim, lens, motion.cuts)
+    piv = [list(ch[cam["pivot"]](t)) for t in times] if cam.get("pivot") in ch else None
+    k = K.measure(times, pos, aim, lens, motion.cuts, pivot=piv)
     vscale, vspeak, vzoom = Q.voice_args(motion, times, (prof or {}).get("flags"))
     motion_flags = Q.flags(k, (prof or {}).get("flags"), vscale, vspeak, vzoom)
     comp_flags = C.flags(motion) if motion.shapes else []

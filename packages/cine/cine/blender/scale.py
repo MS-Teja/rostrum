@@ -16,7 +16,10 @@ point. Perspective doesn't care about scale, so the picture is exactly the true 
   dot     an emissive sphere kept at least `px` pixels across (a planet is a dot until it's big)
   line    a curve a constant width on screen at every point (Geometry Nodes: each point's radius
           is its distance to the camera times a width factor); draw it partway with `reveal`
-  label   text facing the camera at a constant pixel height, offset in pixels from its anchor
+  label   text facing the camera at a constant pixel height, offset in pixels from its anchor;
+          with `avoid=True` it keeps clear of the lines, dots and rings drawn so far, and of the
+          labels already placed: each few frames it takes the place round its anchor that
+          crosses the least of them (its own offset when that's clear), gliding between places
   ring    a marker ring of constant pixel radius, facing the camera (for things too small to see)
 The pixel sizes assume the render's width (render.resolution_x).
 """
@@ -52,6 +55,10 @@ class ScaleStage:
         bake._linear(self.root)
         self.cam = self._camera()
         self._line_group = None
+        self._lines = []   # every line drawn: its points, reveal and moving origin (labels avoid them)
+        self._proj = {}
+        self._marks = []   # dots and rings: where, size in px, visibility (labels avoid them too)
+        self._boxes = {}   # frame -> boxes of the labels already placed with avoid (later labels avoid them)
 
     # ── geometry of the view ──────────────────────────────────────────────────────────────
     def per_px(self, i, point):
@@ -80,6 +87,7 @@ class ScaleStage:
         moving = callable(where)
         if not moving:
             o.location = Vector(where)
+        self._marks.append({"where": where, "px": px, "visible": visible})
         for i, (f, t) in enumerate(self.frames):
             w = Vector(where(t)) if moving else o.location
             r = max(min_true, 0.5 * px * self.per_px(i, w))
@@ -143,9 +151,10 @@ class ScaleStage:
         self._line_group = ng
         return ng
 
-    def line(self, name, points, px=1.0, colour=(1, 1, 1), strength=2.0, cyclic=False, reveal=None, anchor=None):
+    def line(self, name, points, px=1.0, colour=(1, 1, 1), strength=2.0, cyclic=False, reveal=None, anchor=None, origin=None):
         """A polyline through `points` (true units), a constant `px` pixels wide on screen at every
-        point along it, even where it passes the camera. `reveal(t)` draws it partway (0..1)."""
+        point along it, even where it passes the camera. `reveal(t)` draws it partway (0..1).
+        `origin(t)`: the points are relative to a moving point (a path seen from a planet)."""
         cu = bpy.data.curves.new(name, "CURVE")
         cu.dimensions = "3D"
         sp = cu.splines.new("POLY")
@@ -157,7 +166,22 @@ class ScaleStage:
         self.scene.collection.objects.link(o)
         o.visible_shadow = False
         o.parent = self.root
-        ng = self._group()
+        if origin is not None:  # hang it from an empty that follows the moving origin
+            e = bpy.data.objects.new(name + ".origin", None)
+            self.scene.collection.objects.link(e)
+            e.parent = self.root
+            for f, t in self.frames:
+                e.location = Vector(origin(t))
+                e.keyframe_insert("location", frame=f)
+            bake._linear(e)
+            o.parent = e
+        pts = [tuple(p) for p in points] + ([tuple(points[0])] if cyclic else [])
+        cum = [0.0]
+        for a, b in zip(pts, pts[1:]):
+            cum.append(cum[-1] + math.dist(a, b))
+        self._lines.append({"points": pts, "cum": cum, "reveal": reveal, "origin": origin})
+        self._proj = {}
+        ng = self._group()  # (labels placed earlier didn't see this line: draw lines before labels)
         mod = o.modifiers.new("cine.line", "NODES")
         mod.node_group = ng
         ident = {it.name: it.identifier for it in ng.interface.items_tree if getattr(it, "in_out", "") == "INPUT"}
@@ -186,6 +210,7 @@ class ScaleStage:
         o.parent = self.root
         o.rotation_mode = "QUATERNION"
         o.location = Vector(centre)
+        self._marks.append({"where": tuple(centre), "px": 2 * px + width_px, "visible": visible})
         for i, (f, t) in enumerate(self.frames):
             fw, right, up = self.basis(i)
             r = px * self.per_px(i, o.location)
@@ -207,9 +232,11 @@ class ScaleStage:
             vs.keyframe_insert("exposure", frame=f)
 
     def label(self, text, anchor, px=16.0, offset=(0.0, 0.0), colour=(0.92, 0.93, 0.95), strength=1.6, visible=None, font=None,
-              align="CENTER"):
+              align="CENTER", avoid=False, gap=26.0):
         """Text facing the camera, `px` pixels tall, offset (x, y) pixels from `anchor` (a point or
-        a function of t). `visible(t)` 0..1 fades it (by scale, from the anchor)."""
+        a function of t). `visible(t)` 0..1 fades it (by scale, from the anchor). `avoid`: keep clear
+        of the lines drawn so far where there's room (see the module docstring); `gap` is the room
+        kept between the text and its anchor."""
         cu = bpy.data.curves.new("label." + text, "FONT")
         cu.body = text
         cu.align_x, cu.align_y = align, "CENTER"
@@ -221,12 +248,13 @@ class ScaleStage:
         o.visible_shadow = False
         o.parent = self.root
         o.rotation_mode = "QUATERNION"
+        offs = self._clear_of_lines(text, anchor, px, offset, visible, align, gap) if avoid and self._lines else [tuple(offset)] * len(self.frames)
         for i, (f, t) in enumerate(self.frames):
             w = Vector(anchor(t) if callable(anchor) else anchor)
             fw, right, up = self.basis(i)
             u = self.per_px(i, w)
             v = 1.0 if visible is None else max(0.0, min(1.0, visible(t)))
-            o.location = w + right * offset[0] * u + up * offset[1] * u
+            o.location = w + right * offs[i][0] * u + up * offs[i][1] * u
             o.rotation_quaternion = Matrix((right, up, -fw)).transposed().to_quaternion()
             sz = px * u * 1.35 * v + 1e-30  # a font's em is about 1.35 x its cap height
             o.scale = (sz, sz, sz)
@@ -235,6 +263,135 @@ class ScaleStage:
             o.keyframe_insert("scale", frame=f)
         bake._linear(o)
         return o
+
+    # ── labels clear of lines ─────────────────────────────────────────────────────────────
+    def _to_px(self, i, p):
+        """A true-unit point to pixels from the frame's centre (x right, y up) in frame i, or None."""
+        f, right, up = self.basis(i)
+        d = Vector(p) - self.pos[i]
+        z = d.dot(f)
+        if z <= 1e-12 * max(1.0, d.length):
+            return None
+        k = self.width / 2 / math.tan(K.hfov(self.lens[i]) / 2) / z
+        return d.dot(right) * k, d.dot(up) * k
+
+    def _projected(self, i, cell=48.0, step=5.0):
+        """The drawn part of every line, sampled every `step` pixels across the frame (and a margin)
+        in frame i, bucketed into `cell`-pixel cells: {(cx, cy): [(x, y), ...]}."""
+        if i in self._proj:
+            return self._proj[i]
+        t = self.frames[i][1]
+        W, H = self.width / 2 + 200, self.width * 9 / 32 + 200
+        cells = {}
+        for ln in self._lines:
+            pts, cum = ln["points"], ln["cum"]
+            upto = cum[-1] if ln["reveal"] is None else max(0.0, min(1.0, ln["reveal"](t))) * cum[-1]
+            org = Vector(ln["origin"](t)) if ln["origin"] else Vector((0, 0, 0))
+            prev = None
+            for j, p in enumerate(pts):
+                if cum[j] > upto:
+                    break
+                q = self._to_px(i, Vector(p) + org)
+                if q is not None and prev is not None:
+                    (x0, y0), (x1, y1) = prev, q
+                    if not ((x0 < -W and x1 < -W) or (x0 > W and x1 > W) or (y0 < -H and y1 < -H) or (y0 > H and y1 > H)):
+                        n = max(1, min(600, int(math.hypot(x1 - x0, y1 - y0) / step)))
+                        for k in range(n + 1):
+                            x, y = x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n
+                            if -W <= x <= W and -H <= y <= H:
+                                cells.setdefault((int(x // cell), int(y // cell)), []).append((x, y))
+                prev = q
+        if len(self._proj) > 64:  # keep the cache small: frames are visited in order
+            self._proj = {}
+        self._proj[i] = cells
+        return cells
+
+    def _crossings(self, cells, x0, y0, x1, y1, cell=48.0):
+        n = 0
+        for cx in range(int(x0 // cell), int(x1 // cell) + 1):
+            for cy in range(int(y0 // cell), int(y1 // cell) + 1):
+                for x, y in cells.get((cx, cy), ()):
+                    if x0 <= x <= x1 and y0 <= y <= y1:
+                        n += 1
+        return n
+
+    def _clear_of_lines(self, text, anchor, px, offset, visible, align, gap, every=3):
+        """Per-frame offsets for a label that keeps clear of the drawn lines, dots, rings and placed
+        labels where it can. Costs: each line sample (every 5 px) inside the text's box, plus 6 for
+        each dot or ring and 12 for each label it would cover, and a little for straying from its
+        own offset. It holds a place at least half a second, and moves only for a clear gain (or
+        at once if its place turns bad), gliding over about a tenth of a second."""
+        w, h, m = len(text) * 0.58 * px, 1.15 * px, 6.0
+        dx = {"LEFT": w / 2, "RIGHT": -w / 2}.get(align, 0.0)  # the text's centre from its location
+        g = gap
+        places = [tuple(offset)]
+        for s_ in (1.0, 1.9):
+            gx, gy = w / 2 + g * s_, h / 2 + g * s_
+            places += [(0, gy), (0, -gy), (gx, 0), (-gx, 0), (gx * 0.8, gy), (-gx * 0.8, gy), (gx * 0.8, -gy), (-gx * 0.8, -gy)]
+        if align != "CENTER":
+            places = [tuple(offset)] + [(x - dx, y) for x, y in places[1:]]
+        n = len(self.frames)
+        picks, cur, last_move = {}, 0, -10 ** 6
+        for i in range(0, n, every):
+            t = self.frames[i][1]
+            if visible is not None and visible(t) <= 0.0:
+                continue
+            a = self._to_px(i, anchor(t) if callable(anchor) else anchor)
+            if a is None:
+                continue
+            cells = self._projected(i)
+            marks = []
+            for mk in self._marks:
+                if mk["visible"] is not None and mk["visible"](t) <= 0.0:
+                    continue
+                q = self._to_px(i, mk["where"](t) if callable(mk["where"]) else mk["where"])
+                if q is not None:
+                    marks.append((q[0], q[1], 1.6 * mk["px"] + 4))  # with its glow (bloom reaches well past the drawn dot)
+            boxes = self._boxes.get(i, [])
+            costs = []
+            for k, (ox, oy) in enumerate(places):
+                cx, cy = a[0] + ox + dx, a[1] + oy
+                x0, y0, x1, y1 = cx - w / 2 - m, cy - h / 2 - m, cx + w / 2 + m, cy + h / 2 + m
+                cost = self._crossings(cells, x0, y0, x1, y1)
+                # dots and rings, its own marker included (a ring round its anchor pushes it further out)
+                cost += 6 * sum(1 for (mx, my, r) in marks
+                                if max(x0 - mx, 0, mx - x1) ** 2 + max(y0 - my, 0, my - y1) ** 2 < r * r)
+                # other labels, with room between (a label stacked under another reads as one two-line label)
+                cost += 12 * sum(1 for (bx0, by0, bx1, by1) in boxes if x0 - 10 < bx1 and bx0 < x1 + 10 and y0 - 10 < by1 and by0 < y1 + 10)
+                cost += 0.015 * math.hypot(ox - places[0][0], oy - places[0][1])  # stay near its own spot
+                costs.append(cost)
+            best = min(range(len(places)), key=costs.__getitem__)
+            # hold a place at least half a second unless it turns bad; then move only for a clear gain
+            held = (i - last_move) / self.m.fps
+            if best != cur and (costs[cur] - costs[best] > 2.0 and held >= 0.5 or costs[cur] >= 4.0 + costs[best]):
+                cur, last_move = best, i
+            picks[i] = places[cur]
+        if not picks:
+            return [tuple(offset)] * n
+        keys = sorted(picks)
+        raw = []
+        for i in range(n):  # hold the nearest decision, then glide between them (Gaussian, ~0.15 s)
+            j = min(keys, key=lambda k: abs(k - i))
+            raw.append(picks[j])
+        sig = max(1.0, 0.12 * self.m.fps)
+        r = int(3 * sig)
+        wts = [math.exp(-0.5 * (k / sig) ** 2) for k in range(-r, r + 1)]
+        out = []
+        for i in range(n):
+            sx = sy = sw = 0.0
+            for k, wt in zip(range(-r, r + 1), wts):
+                j = min(n - 1, max(0, i + k))
+                sx, sy, sw = sx + raw[j][0] * wt, sy + raw[j][1] * wt, sw + wt
+            out.append((sx / sw, sy / sw))
+        for i in range(0, n):  # register where it went, for the labels placed after it
+            t = self.frames[i][1]
+            if visible is not None and visible(t) <= 0.0:
+                continue
+            a = self._to_px(i, anchor(t) if callable(anchor) else anchor)
+            if a is not None:
+                cx, cy = a[0] + out[i][0] + dx, a[1] + out[i][1]
+                self._boxes.setdefault(i, []).append((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2))
+        return out
 
     def _camera(self, name="cine.camera", clip=(0.05, 1e8)):
         """The camera in stage space: K units from its aim, every frame (made with the stage, so

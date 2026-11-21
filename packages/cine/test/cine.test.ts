@@ -446,6 +446,27 @@ print(json.dumps([a, b, zs[0]]))`);
   });
 });
 
+describe("following a moving subject", () => {
+  it("reads as still when the camera keeps its distance from the subject it follows", () => {
+    const got = py(`
+import json
+from cine.core import kinematics as K
+ts = [i / 30 for i in range(61)]
+subj = [[3.0 * t, 2.0 * t, 0.0] for t in ts]          # moving along and across the view
+pos = [[s[0], s[1] - 10.0, s[2]] for s in subj]        # the camera 10 behind it, keeping station
+aim = [list(s) for s in subj]
+lens = [35.0] * len(ts)
+plain = K.measure(ts, pos, aim, lens)
+follow = K.measure(ts, pos, aim, lens, pivot=subj)
+mx = lambda k, d: max(abs(x) for x in d[k][2:-2])
+print(json.dumps({"zoom_plain": mx("zoom", plain), "sweep_plain": mx("sweep", plain), "zoom_follow": mx("zoom", follow), "sweep_follow": mx("sweep", follow)}))`);
+    expect(got.zoom_plain).toBeGreaterThan(0.1);
+    expect(got.sweep_plain).toBeGreaterThan(0.1);
+    expect(got.zoom_follow).toBeLessThan(1e-9);
+    expect(got.sweep_follow).toBeLessThan(1e-9);
+  });
+});
+
 describe("actor visibility", () => {
   it("flags an actor out of frame, behind the camera, out at its word, or too small; passes a visible one", () => {
     const got = py(`
