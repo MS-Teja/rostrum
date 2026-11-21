@@ -187,7 +187,7 @@ class ScaleStage:
         ident = {it.name: it.identifier for it in ng.interface.items_tree if getattr(it, "in_out", "") == "INPUT"}
         ins = mod.properties.inputs
         getattr(ins, ident["Camera"]).value = self.cam
-        getattr(ins, ident["Material"]).value = look.emissive(name, colour, strength)
+        getattr(ins, ident["Material"]).value = self._line_material(name, colour, strength)
         w_in, e_in = getattr(ins, ident["Width"]), getattr(ins, ident["End"])
         e_in.value = 1.0
         for i, (f, t) in enumerate(self.frames):
@@ -198,6 +198,40 @@ class ScaleStage:
                 e_in.keyframe_insert("value", frame=f)
         bake._linear(o)
         return o
+
+    def _line_material(self, name, colour, strength, near=(0.08, 0.3)):
+        """Emission that fades out where the line passes close to the camera: within `near` of the
+        aim's distance (the stage keeps the camera K units from its aim). A line sweeping just past
+        the lens is a blurred band that pops in from the frame's edge, never something to read.
+        The emission node keeps its default name, "Emission", so its strength can be keyed."""
+        m = bpy.data.materials.new(name)
+        m.use_nodes = True
+        nt = m.node_tree
+        for n in list(nt.nodes):
+            nt.nodes.remove(n)
+        N, L = nt.nodes, nt.links
+        em = N.new("ShaderNodeEmission")
+        em.inputs["Color"].default_value = (*colour, 1.0)
+        em.inputs["Strength"].default_value = strength
+        tc = N.new("ShaderNodeTexCoord")
+        d = N.new("ShaderNodeVectorMath")
+        d.operation = "LENGTH"
+        L.new(tc.outputs["Camera"], d.inputs[0])
+        fade = N.new("ShaderNodeMapRange")
+        fade.clamp = True
+        fade.inputs["From Min"].default_value = near[0] * self.K
+        fade.inputs["From Max"].default_value = near[1] * self.K
+        L.new(d.outputs["Value"], fade.inputs["Value"])
+        tr = N.new("ShaderNodeBsdfTransparent")
+        mix = N.new("ShaderNodeMixShader")
+        L.new(fade.outputs["Result"], mix.inputs["Fac"])
+        L.new(tr.outputs[0], mix.inputs[1])
+        L.new(em.outputs[0], mix.inputs[2])
+        out = N.new("ShaderNodeOutputMaterial")
+        L.new(mix.outputs[0], out.inputs["Surface"])
+        if hasattr(m, "surface_render_method"):
+            m.surface_render_method = "BLENDED"
+        return m
 
     def ring(self, name, centre, px=7.0, width_px=1.4, colour=(1, 1, 1), strength=3.0, visible=None):
         """A ring `px` pixels in radius round `centre`, facing the camera, `width_px` thick: a

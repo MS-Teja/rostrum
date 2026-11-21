@@ -128,7 +128,7 @@ Then run the reviewer agent once (`cine-reviewer`). Answer every note in `notes.
 
 ## Gate 8. Render (Teja approves)
 
-Render the preview (`--render`), join it into the film or reel (`transition.join` refuses voice under a transition), and scan the frames for pops and flicker. Complete `notes.md`.
+Render the preview (`--render`), join it into the film or reel (`transition.join` refuses voice under a transition), and scan the frames: `python3 -m cine.frameqa scene.mp4` flags pops and flicker (skip designed fades with `--skip`). It reads the picture itself, so it catches what the camera checks can't: scene b07's first render had the Sun whip across the frame as the camera passed it, and only this scan saw it. Complete `notes.md`.
 
 **Teja approves** the render, with the notes log beside it.
 

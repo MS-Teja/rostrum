@@ -446,6 +446,28 @@ print(json.dumps([a, b, zs[0]]))`);
   });
 });
 
+describe("frame QA", () => {
+  it("finds a pop and a flicker in a rendered clip, and stays quiet on a steady one", () => {
+    const got = py(`
+import json, os, subprocess, tempfile
+from cine import frameqa as F
+d = tempfile.mkdtemp()
+def clip(name, expr):
+    p = os.path.join(d, name)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=gray:s=64x36:d=2:r=30",
+                    "-vf", f"geq=lum='{expr}':cb=128:cr=128", "-c:v", "libx264", "-qp", "0", "-pix_fmt", "yuv420p", p], check=True)
+    return p
+steady = F.scan(clip("steady.mp4", "60+10*T"))                       # a slow brightening
+pop = F.scan(clip("pop.mp4", "if(gt(T,1),120,60)"))                  # a light switching on at 1 s
+flick = F.scan(clip("flicker.mp4", "60+if(between(T,0.8,1.2),8*mod(N,2),0)"))  # strobing for 0.4 s
+print(json.dumps({"steady": [f[0] for f in steady], "pop": [(f[0], round(f[1], 2)) for f in pop], "flicker": [f[0] for f in flick]}))`);
+    expect(got.steady).toEqual([]);
+    expect(got.pop.map((f: [string, number]) => f[0])).toContain("pop");
+    expect(Math.abs(got.pop.find((f: [string, number]) => f[0] === "pop")[1] - 1.0)).toBeLessThan(0.1);
+    expect(got.flicker).toContain("flicker");
+  });
+});
+
 describe("following a moving subject", () => {
   it("reads as still when the camera keeps its distance from the subject it follows", () => {
     const got = py(`

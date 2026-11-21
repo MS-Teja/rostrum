@@ -168,6 +168,7 @@ The keys are stored as curves in the motion file, and the sheet draws them as an
 | `cine/core/qa.py` | Flags |
 | `cine/viz/` | The sheet, the map, the viewer, and SVG to PNG (headless Chrome, or ImageMagick) |
 | `cine/see.py` | The command |
+| `cine/frameqa.py` | Frame QA on the rendered video: pops and flicker, from per-frame brightness |
 | `cine/calibrate.py` | Measures reference footage into a profile (needs numpy and ffmpeg) |
 | `profiles/film.json` | The profile measured from Blender's open films |
 | `test/cine.test.ts` | Tests (vitest runs the pure-Python core with `python3`) |
