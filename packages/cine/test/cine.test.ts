@@ -601,3 +601,50 @@ print(json.dumps({"before": T.level_db(out, 0.0, 0.33), "after": T.level_db(out,
     expect(got.length).toBeLessThan(1.1);
   });
 });
+
+describe("text stays put", () => {
+  it("flags labels that are re-placed, slide, tick, flash, crowd or show too briefly; passes held ones", () => {
+    const got = py(`
+import json
+from cine.core import text as TX
+n = 120
+def lab(name, at, opacity=None, text=None, anchor=None):
+    return {"name": name, "text": text or name, "at": at, "anchor": anchor, "opacity": opacity or [1.0] * n}
+held = [lab("Saturn", [(300, 200)] * n, anchor=[(300, 170)] * n),                                   # still, beside its anchor
+        lab("1979", [(-800, -450)] * n, opacity=[1.0 if 20 <= i < 70 else 0.0 for i in range(n)])]   # a caption, 1.7 s
+bad = [lab("Titan", [(0, 40 if i < 60 else -40) for i in range(n)], anchor=[(0, 0)] * n),          # re-placed
+       lab("Jupiter", [(-900 + 10 * i, 0) for i in range(n)], anchor=[(-930 + 10 * i, 0) for i in range(n)]),  # slides at 300 px/s
+       lab("speed", [(500, -300)] * n, text=[f"{13 + i // 6} km/s" for i in range(n)]),             # a counter
+       lab("Earth", [(100, 100)] * n, opacity=[1.0 if (i // 15) % 2 == 0 else 0.0 for i in range(n)])]  # on and off
+print(json.dumps({"held": [f[0] for f in TX.flags(held, 30, 1920)],
+                  "bad": {name: sorted({f[0] for f in TX.flags([b], 30, 1920)}) for name, b in zip(["Titan", "Jupiter", "speed", "Earth"], bad)},
+                  "crowd": sorted({f[0] for f in TX.flags([lab(f"n{k}", [(k * 100, 0)] * n) for k in range(8)], 30, 1920)})}))`);
+    expect(got.held).toEqual([]);
+    expect(got.bad.Titan).toEqual(["re-placed"]);
+    expect(got.bad.Jupiter).toEqual(["moving"]);
+    expect(got.bad.speed).toEqual(["ticking"]);
+    expect(got.bad.Earth).toEqual(["brief", "flash"]);
+    expect(got.crowd).toEqual(["busy"]);
+  });
+});
+
+describe("the clock that follows the scale", () => {
+  it("lands each pinned date on its time, runs in proportion to the view, and inverts", () => {
+    const got = py(`
+import json
+from cine.core.clock import ScaleClock
+c = ScaleClock(start=100.0, t1=4.0, fps=30)
+field = lambda t: 10.0 if t < 2.0 else 1.0          # the view narrows tenfold at 2 s
+c.solve(field, keys=[(0.0, 0), (1.0, 0), (1.5, 1), (3.0, 1), (3.2, 5.0), (4.0, 5.0)],
+        pins=[(1.0, 110.0), (3.0, 400.0)], guess=[1.0, 1.0])
+print(json.dumps({"misses": c.misses([(1.0, 110.0), (3.0, 400.0)]), "when": c.when(110.0),
+                  "rate_wide": c.rate(0.5), "rate_fixed": c.rate(3.7), "before": ScaleClock(5.0, 1.0)(0.7),
+                  "mono": all(c(k / 30) <= c((k + 1) / 30) for k in range(119))}))`);
+    expect(Math.max(...got.misses.map(Math.abs))).toBeLessThan(0.01);
+    expect(got.when).toBeCloseTo(1.0, 2);
+    expect(got.rate_wide).toBeCloseTo(10.0, 1);   // 1 day/s per unit of view, 10 units wide
+    expect(got.rate_fixed).toBeCloseTo(5.0, 1);   // the fixed plateau, 1 unit wide
+    expect(got.before).toBe(5.0);                 // unsolved: reads its start
+    expect(got.mono).toBe(true);
+  });
+});

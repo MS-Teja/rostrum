@@ -18,7 +18,7 @@ The four role guides ([director](director.md), [cinematographer](cinematographer
 - Work through them in order.
 - Each gate **produces** something saved with the scene, **answers** its questions in writing in the scene's `notes.md` (under "Build"), and runs its **checks**.
 - A gate isn't passed until its evidence exists. The reviewer checks that it does.
-- **Teja approves three gates himself:** the paper plan, the look, and the final render.
+- **Teja approves three gates:** the paper plan, the look, and the final render.
 - Start a scene from the templates: `templates/scene.py` and `templates/notes.md`.
 
 | Gate | Produce | Check | Teja |
@@ -32,7 +32,7 @@ The four role guides ([director](director.md), [cinematographer](cinematographer
 | 7. Dailies | The pack; the checklist answered | Every check; then the reviewer, once | |
 | 8. Render | The render, the join, the notes log | The join's voice check; a frame scan | approves |
 
-Problems found at gates 1–4 cost minutes. Found at review, they cost a round of dailies. Found by Teja at the end, they cost a re-render and his trust.
+Problems found at gates 1–4 cost minutes. Found at review, they cost a round of dailies. Found by Teja at the end, they cost a re-render and Teja's trust.
 
 ## Gate 1. Paper (Teja approves)
 
@@ -118,7 +118,7 @@ Answer in `notes.md`, for each actor at its word:
 - **Standing out from what's behind it?** A white pulse on a bright, shiny tray vanishes.
 - **Not competing with the camera?** An actor's action doesn't land on the camera's fastest moment (animator §2).
 
-Check: the actor visibility check (`cine.see` for frame and size; the dailies for hidden).
+Check: the actor visibility check (`cine.see` for frame and size; the dailies for hidden). On-screen text is checked here too: the text check (`core/text.py`) flags labels that are brief, moving, re-placed, ticking, flashing or crowded.
 
 ## Gate 7. Dailies and self-review
 
@@ -143,5 +143,5 @@ One list, used by whoever builds the scene at gate 7 and by the reviewer:
 5. **The plan delivered.** Every planned move, lens change and reveal happens on the sheet.
 6. **The brightest thing matters.** Nothing outshines the subject; nothing burns out.
 7. **The voice is clear.** Handles are at least the transitions; no word falls under a transition.
-8. **Text stays put.** Each label takes one place when it appears and holds it until it leaves: never re-placed during a shot, never fading with the camera's motion. Text changes are few, and each value that matters is held long enough to read (no counters ticking every frame). Teja's note on a scene where labels dodged lines and readouts ticked: "it's too messy. Texts are constantly changing, they should be at a constant place."
+8. **Text stays put.** Each label takes one place when it appears and holds it until it leaves: never re-placed during a shot, never fading with the camera's motion. Show a name while its subject holds still on screen; put dates and readouts in one corner for the whole scene, as held values shown while they're true (no counters ticking every frame). Text changes are few, and each is held long enough to read. Teja's note on a scene where labels dodged lines and readouts ticked: "it's too messy. Texts are constantly changing, they should be at a constant place." Check: the text check (`stage.text_flags()`, passed to the dailies pack as `text=`) gives 0 flags.
 9. **Each role's own checklist:** director §8, cinematographer §10, look §5, animator §5.

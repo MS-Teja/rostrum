@@ -74,7 +74,7 @@ The jobs of a film crew, folded into four roles as on a small production. Each h
 | Director (folds in editor, continuity) | `crew/director.md`: the brief, pacing, transitions, continuity, the standing rules | the brief in the motion file; moves against words |
 | Cinematographer | `crew/cinematographer.md`: shot sizes, angles, lenses, motives, composition, the 180° line | `camera/shot.py` sets up a shot from intent; `core/compose.py` checks size, edges, dominance, lead room and headroom on held frames |
 | Look (folds in gaffer, production designer, colorist) | `crew/look.md`: motivated light, exposure targets, real assets, the grade | `blender/look.py` (lights, starfield, plume, bloom); `core/look.py` checks exposure, contrast, crush and form per still, by the shot's planned look |
-| Animator | `crew/animator.md`: the principles applied to objects, one dominant motion, truth in motion | `blender/actors.py` presets (gas puffs, glows, pulses); `core/actors.py` flags an actor out of frame or too small, and the dailies flag one hidden behind something |
+| Animator | `crew/animator.md`: the principles applied to objects, one dominant motion, truth in motion | `blender/actors.py` presets (gas puffs, glows, pulses); `core/actors.py` flags an actor out of frame or too small, and the dailies flag one hidden behind something; `core/text.py` flags on-screen text that moves, ticks or flashes |
 
 **Dailies:** `cine.dailies` renders a scene's key poses and the midpoints between them in about 15 s. It packs:
 - a contact sheet with overlays
@@ -109,6 +109,10 @@ The voiceover drives the picture (`cine/core/voice.py`):
 - **The stage.** Everything lives in true units under one root. Each frame, the root is scaled so the camera sits 10 units from its aim, so a million-AU scene is float-safe, with the true perspective.
 - **Lines** are a constant width on screen at every point, even where they pass the camera. Geometry Nodes sets each point's radius from its distance to the camera. A line can be drawn partway (`reveal`).
 - **Dots** keep a minimum pixel size, and **labels** face the camera at a fixed pixel height.
+- **Text stays put.** A label takes one place when it appears and holds it until it leaves, fading in and out at a constant size. With `avoid=True`, the place round its anchor is chosen once per appearance, the one clearest of the lines, dots and labels over the whole appearance. `caption_place` picks one screen corner for captions (a date, a readout) for the whole scene. `stage.text_flags()` (`core/text.py`) flags text that is brief, moving, re-placed, ticking, flashing or crowded. The rule comes from an owner's note on a render whose labels dodged lines and ticked every frame: "Texts are constantly changing, they should be at a constant place."
+- **The planets' plane** (`plane`): a faint sheet whose grid spacing follows the view, so it reads as a flat surface at every scale.
+- **A clock that follows the scale** (`core/clock.py`): calendar time runs in proportion to the view's width, so a craft's on-screen pace stays true at every zoom. Each plateau is solved so a pinned date lands on its word.
+- **Real bodies** (`blender/bodies.py`): a banded, ringed planet from a band strip and a measured ring profile, and a sphere that lights itself from the Sun's true direction wherever it is.
 - **Zoom-throughs.** A key whose motive is `"zoom-through"` hands the aim across scales in proportion to the view, so the subjects at both scales slide smoothly instead of being flung. Its zoom limit lifts to about one power of ten per 0.8 s, still scaled by the voice.
 
 ## The camera
@@ -158,7 +162,11 @@ The keys are stored as curves in the motion file, and the sheet draws them as an
 | `cine/core/look.py` | Exposure checks by planned look |
 | `cine/core/voice.py` | The voiceover: word times, the pace curve, the words lane |
 | `cine/blender/hull.py` | Exports subject shapes from real meshes |
-| `cine/blender/scale.py` | The scale stage: float-safe scenes across orders of magnitude, constant-width lines, dots and labels |
+| `cine/blender/scale.py` | The scale stage: float-safe scenes across orders of magnitude, constant-width lines, dots, rings, the plane sheet, labels that hold their place, and caption placement |
+| `cine/core/text.py` | The text check: brief, moving, re-placed, ticking, flash, busy |
+| `cine/core/clock.py` | A clock that follows the scale, with pinned dates solved onto their words |
+| `cine/blender/bodies.py` | Planets from real maps: a ringed, banded planet; a self-lit sphere; a sun lamp along a moving direction |
+| `cine/blender/nodes.py` | Helpers for shader node trees in code |
 | `cine/blender/dailies.py`, `cine/dailies.py` | Key-pose stills, masks, look measures, occlusion, and the dailies pack |
 | `crew/` | How to build a scene (`build.md`), and the four craft guides |
 | `templates/` | A new scene's starting files: `scene.py` and `notes.md` |
