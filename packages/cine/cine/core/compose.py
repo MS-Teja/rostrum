@@ -239,6 +239,10 @@ def flags(motion, meas=None, rules=None):
     meas, subj = meas or measure(motion, times)
     dt = 1 / motion.fps
     held = []  # frames the viewer gets to look at: the subject's size steady, the aim settled
+    # a zoom-through or push-through is a transit by design, judged at its ends, not in the middle (where
+    # part of the subject may still be behind the camera, which the size test can't see)
+    transits = [(sp["t0"], sp["t1"]) for sp in getattr(motion, "spans", []) or []
+                if sp.get("lane") == "camera" and sp.get("rule") in ("zoom-through", "push-through")]
     for i, t in enumerate(times):
         s, a, b = subj[i], max(0, i - 3), min(len(times) - 1, i + 3)
         ok = s in meas and meas[s][a].get("visible") and meas[s][b].get("visible") and subj[a] == s == subj[b]
@@ -246,7 +250,8 @@ def flags(motion, meas=None, rules=None):
         w = int(r["handover"] / dt)
         recent = any(subj[j] != s for j in range(max(0, i - w), min(len(times), i + w + 1)))
         mixing = _look_weight(motion, s, t) < 0.9  # the aim is still travelling between subjects
-        held.append(not (rate > r["transit"] or recent or mixing))
+        passing = any(t0 + 0.3 < t < t1 - 0.3 for t0, t1 in transits)
+        held.append(not (rate > r["transit"] or recent or mixing or passing))
     out = []
     for i, t in enumerate(times):
         s = subj[i]

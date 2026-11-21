@@ -87,7 +87,7 @@ class ScaleStage:
         moving = callable(where)
         if not moving:
             o.location = Vector(where)
-        self._marks.append({"where": where, "px": px, "visible": visible})
+        self._marks.append({"where": where, "px": px, "visible": visible, "glow": True})
         for i, (f, t) in enumerate(self.frames):
             w = Vector(where(t)) if moving else o.location
             r = max(min_true, 0.5 * px * self.per_px(i, w))
@@ -210,7 +210,7 @@ class ScaleStage:
         o.parent = self.root
         o.rotation_mode = "QUATERNION"
         o.location = Vector(centre)
-        self._marks.append({"where": tuple(centre), "px": 2 * px + width_px, "visible": visible})
+        self._marks.append({"where": tuple(centre), "px": 2 * px + width_px, "visible": visible, "glow": False})
         for i, (f, t) in enumerate(self.frames):
             fw, right, up = self.basis(i)
             r = px * self.per_px(i, o.location)
@@ -346,7 +346,8 @@ class ScaleStage:
                     continue
                 q = self._to_px(i, mk["where"](t) if callable(mk["where"]) else mk["where"])
                 if q is not None:
-                    marks.append((q[0], q[1], 1.6 * mk["px"] + 4))  # with its glow (bloom reaches well past the drawn dot)
+                    # a dot with its glow (bloom reaches well past it); a ring at its drawn size
+                    marks.append((q[0], q[1], (1.6 * mk["px"] if mk.get("glow", True) else mk["px"] / 2) + 4))
             boxes = self._boxes.get(i, [])
             costs = []
             for k, (ox, oy) in enumerate(places):

@@ -108,7 +108,11 @@ class Rig:
         self.fps, self.interp, self.glide = float(fps), interp, glide
         self.keys = []
 
-    def key(self, t, look=None, dist=None, az=None, el=None, lens=None, screen=None, stop=False, label=None, intent=None, handover=0.5):
+    def key(self, t, look=None, dist=None, az=None, el=None, lens=None, screen=None, stop=False, label=None, intent=None, handover=0.5,
+            share=True):
+        """`share=False` on a zoom-through key hands the aim over at `handover` of the way, like any other
+        key, instead of in proportion to the scale: for subjects that start close together (a craft
+        leaving the planet it just passed), so the camera picks up the new one at once."""
         prev = self.keys[-1] if self.keys else {"look": None, "dist": 10.0, "az": 0.0, "el": 10.0, "lens": 35.0, "screen": (0.0, 0.0)}
         look = prev["look"] if look is None else look
         if look is None:
@@ -123,7 +127,7 @@ class Rig:
         k = {"t": float(t), "look": look, "w": w, "dist": prev["dist"] if dist is None else float(dist), "az": a,
              "el": prev["el"] if el is None else float(el), "lens": prev["lens"] if lens is None else float(lens),
              "screen": tuple(prev["screen"] if screen is None else screen), "stop": stop, "label": label or "", "intent": intent,
-             "handover": float(handover)}
+             "handover": float(handover), "share": bool(share)}
         if self.keys and k["t"] <= prev["t"]:
             raise ValueError("keys must be in time order")
         self.keys.append(k)
@@ -179,7 +183,7 @@ class Rig:
         for n in used:
             pts = []
             for a, b in zip([None] + ks[:-1], ks):
-                if zoom_through(a, b) and a["w"] != b["w"]:
+                if zoom_through(a, b) and a["w"] != b["w"] and b.get("share", True):
                     # Across scales the aim must travel in proportion to the view: a frame twice as
                     # wide can take a shift twice as big. So the new subject's share grows as the
                     # zoom's progress u times the current distance over the far end's (zooming
@@ -192,10 +196,10 @@ class Rig:
                         d = math.exp(dist(tq))
                         share = u * d / b["dist"] if b["dist"] > a["dist"] else 1 - (1 - u) * d / a["dist"]
                         pts.append((tq, wa + (wb - wa) * min(1.0, max(0.0, share))))
-                elif a is not None and a["w"] != b["w"] and abs(b["handover"] - 0.5) > 1e-6:
+                elif a is not None and a["w"] != b["w"] and (abs(b["handover"] - 0.5) > 1e-6 or not b.get("share", True)):
                     # the aim changes hands at `handover` of the way between the keys, not halfway
                     wa, wb = a["w"].get(n, 0.0), b["w"].get(n, 0.0)
-                    h = min(0.9, max(0.1, b["handover"]))
+                    h = min(0.9, max(0.05, b["handover"]))
                     pts.append((a["t"] + h * (b["t"] - a["t"]), (wa + wb) / 2))
                 pts.append((b["t"], b["w"].get(n, 0.0)))
             ch["cam.key.look." + n] = Curve(keys=pts, interp=mono, stops=stops)
