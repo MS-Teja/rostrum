@@ -19,7 +19,9 @@ point. Perspective doesn't care about scale, so the picture is exactly the true 
   label   text facing the camera at a constant pixel height, offset in pixels from its anchor;
           with `avoid=True` it keeps clear of the lines, dots and rings drawn so far, and of the
           labels already placed: each few frames it takes the place round its anchor that
-          crosses the least of them (its own offset when that's clear), gliding between places
+          crosses the least of them (its own offset when that's clear), gliding between places.
+          NOTE (Teja, 2026-11-21): text must hold a constant place; this re-placement reads as
+          mess. To change: choose the place once when a label appears, then hold it
   ring    a marker ring of constant pixel radius, facing the camera (for things too small to see)
 The pixel sizes assume the render's width (render.resolution_x).
 """

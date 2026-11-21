@@ -67,7 +67,7 @@ Choose one per boundary and write it in both scenes' briefs:
 
 - **3D always**, never a 2D or photo substitute. No AI-generated video.
 - **Real data** for science scenes (Horizons, HYG, measured parts). Cheats are uniform and labelled.
-- **On-screen text** is only numbers and dates, identifying names, and honesty notes. Never a phrase that repeats the voice.
+- **On-screen text** is only numbers and dates, identifying names, and honesty notes. Never a phrase that repeats the voice. It holds a constant place: a label appears, stays put and leaves; it isn't re-placed, and values aren't left ticking.
 - **Continuous camera:** the same object means one continuous move; a scene change means a designed transition.
 - **The bar is Cleo Abram level.** "Slightly better than before" is not the bar.
 

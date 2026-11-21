@@ -143,4 +143,5 @@ One list, used by whoever builds the scene at gate 7 and by the reviewer:
 5. **The plan delivered.** Every planned move, lens change and reveal happens on the sheet.
 6. **The brightest thing matters.** Nothing outshines the subject; nothing burns out.
 7. **The voice is clear.** Handles are at least the transitions; no word falls under a transition.
-8. **Each role's own checklist:** director §8, cinematographer §10, look §5, animator §5.
+8. **Text stays put.** Each label takes one place when it appears and holds it until it leaves: never re-placed during a shot, never fading with the camera's motion. Text changes are few, and each value that matters is held long enough to read (no counters ticking every frame). Teja's note on a scene where labels dodged lines and readouts ticked: "it's too messy. Texts are constantly changing, they should be at a constant place."
+9. **Each role's own checklist:** director §8, cinematographer §10, look §5, animator §5.
