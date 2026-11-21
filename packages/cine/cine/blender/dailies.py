@@ -135,8 +135,10 @@ def hidden(scene, motion, step=0.1, max_hidden=0.3, ignore=()):
     return out
 
 
-def render(scene, motion, times, out_dir, subject, other=(), hide=(), res=(640, 360), samples=8, ignore=()):
-    """Render stills and masks at `times`; return [{t, frame, still, mask, look, flags, occluded}]."""
+def render(scene, motion, times, out_dir, subject, other=(), hide=(), res=(640, 360), samples=8, ignore=(), rays=True):
+    """Render stills and masks at `times`; return [{t, frame, still, mask, look, flags, occluded}].
+    `rays=False` skips the occlusion ray test: on the scale stage (blender/scale.py) the scene isn't
+    in the motion file's units, so the test can't work there yet."""
     os.makedirs(os.path.join(out_dir, "stills"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "masks"), exist_ok=True)
     r = scene.render
@@ -152,7 +154,7 @@ def render(scene, motion, times, out_dir, subject, other=(), hide=(), res=(640, 
         bpy.ops.render.render(write_still=True)
         subj = C.beat_subject(motion, t)
         shots.append({"t": round(t, 3), "frame": f, "still": path, "subject": subj,
-                      "occluded": occlusion(scene, motion, t, subj, ignore=ignore) if subj else None})
+                      "occluded": occlusion(scene, motion, t, subj, ignore=ignore) if subj and rays else None})
     # masks: flat colours, no blur, no bloom, no stars
     state = {"engine": r.engine, "blur": r.use_motion_blur, "comp": r.use_compositing, "view": scene.view_settings.view_transform,
              "look": scene.view_settings.look, "world": tuple(scene.world.color) if scene.world else None}

@@ -283,6 +283,8 @@ def flags(motion, meas=None, rules=None):
                 continue  # a part shown medium or closer: the machine round it is its ground, not a rival
             if motion.shapes[name].get("frame"):
                 continue  # a planned foreground frame (a corridor's walls) frames the subject, it doesn't rival it
+            if not motion.shapes[name].get("solid", True):
+                continue  # a region (an aisle, a stretch of the solar system) isn't an object: it can't take the frame over
             if c["cover"] > r["dominant"] and c["cover"] > r["dominant_ratio"] * m["cover"]:
                 out.append(("dominant", t, f"{name} covers {c['cover']:.0%} of the frame; the subject {s} only {m['cover']:.0%}"))
     if r.get("drift"):  # off by default: slow, steady movement under the voice is fine (qa flags wander and fidget)

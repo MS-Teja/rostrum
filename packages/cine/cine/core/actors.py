@@ -23,8 +23,13 @@ from . import kinematics as K
 RULES = {"min_size": 0.006, "max_bad": 0.2, "min_seen": 0.5}
 
 
-def actor(track, size, word=None):
-    return {"track": [list(map(float, r)) for r in track], "size": float(size), "word": word}
+def actor(track, size, word=None, min_px=None, width=1920):
+    """`min_px`: an actor drawn at least this many pixels across (a dot that stays visible when its
+    true size is too small to see, as the scale stage draws them), out of a frame `width` wide."""
+    a = {"track": [list(map(float, r)) for r in track], "size": float(size), "word": word}
+    if min_px:
+        a["min_frac"] = float(min_px) / width
+    return a
 
 
 def measure(motion, a):
@@ -41,7 +46,7 @@ def measure(motion, a):
             rows.append((t, False, 0.0))
             continue
         sx, sy, depth = q
-        rows.append((t, abs(sx) <= 0.5 and abs(sy) <= 0.5, a["size"] / (depth * math.tan(K.hfov(lens) / 2))))
+        rows.append((t, abs(sx) <= 0.5 and abs(sy) <= 0.5, max(a.get("min_frac", 0.0), a["size"] / (depth * math.tan(K.hfov(lens) / 2)))))
     return rows
 
 
