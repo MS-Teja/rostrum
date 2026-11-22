@@ -135,7 +135,7 @@ def screen(pos, aim, lens, point, aspect=16 / 9):
     upv = cross(right, f)
     d = sub(point, pos)
     z = dot(d, f)
-    if z <= 1e-9:
+    if z <= 1e-9 * norm(d):  # behind the lens (relative, so a scene in AU and one in metres behave alike)
         return None
     half = math.tan(hfov(lens) / 2)
     x = dot(d, right) / (z * half) / 2

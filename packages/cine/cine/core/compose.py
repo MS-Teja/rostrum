@@ -118,7 +118,8 @@ def _area(poly):
 def inside_extent(points, pos, grow=0.05):
     lo = [min(p[k] for p in points) for k in range(3)]
     hi = [max(p[k] for p in points) for k in range(3)]
-    pad = [(hi[k] - lo[k]) * grow + 1e-6 for k in range(3)]
+    span = max(hi[k] - lo[k] for k in range(3))  # a flat shape still gets some depth, at any scale (metres or AU)
+    pad = [(hi[k] - lo[k]) * grow + 1e-3 * span for k in range(3)]
     return all(lo[k] - pad[k] <= pos[k] <= hi[k] + pad[k] for k in range(3))
 
 
