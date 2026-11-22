@@ -128,7 +128,7 @@ Then run the reviewer agent once (`cine-reviewer`). Answer every note in `notes.
 
 ## Gate 8. Render (Teja approves)
 
-Render the preview (`--render`), join it into the film or reel (`transition.join` refuses voice under a transition), and scan the frames: `python3 -m cine.frameqa scene.mp4` flags pops and flicker (skip designed fades with `--skip`). It reads the picture itself, so it catches what the camera checks can't: scene b07's first render had the Sun whip across the frame as the camera passed it, and only this scan saw it. Complete `notes.md`.
+Render the preview (`--render`), join it into the film or reel (`transition.join` refuses voice under a transition), and scan the frames: `python3 -m cine.frameqa scene.mp4` flags pops, flicker, dark stretches and stale stretches (skip designed fades with `--skip`). It reads the picture itself, so it catches what the camera checks can't: scene b07's first render had the Sun whip across the frame as the camera passed it, and only this scan saw it. Complete `notes.md`.
 
 **Teja approves** the render, with the notes log beside it.
 
@@ -144,4 +144,5 @@ One list, used by whoever builds the scene at gate 7 and by the reviewer:
 6. **The brightest thing matters.** Nothing outshines the subject; nothing burns out.
 7. **The voice is clear.** Handles are at least the transitions; no word falls under a transition.
 8. **Text stays put.** Each label takes one place when it appears and holds it until it leaves: never re-placed during a shot, never fading with the camera's motion. Show a name while its subject holds still on screen; put dates and readouts in one corner for the whole scene, as held values shown while they're true (no counters ticking every frame). Text changes are few, and each is held long enough to read. Teja's note on a scene where labels dodged lines and readouts ticked: "it's too messy. Texts are constantly changing, they should be at a constant place." Check: the text check (`stage.text_flags()`, passed to the dailies pack as `text=`) gives 0 flags.
-9. **Each role's own checklist:** director §8, cinematographer §10, look §5, animator §5.
+9. **Fed and filled.** A new image every 3–5 s, never one subject with a slow move for long; a big lit subject in frame, not dots on black. Check: `cine.frameqa` gives no `stale` or `dim` flags (limits from the bar, `research/refs/notes.md`). Numbers that matter land big beside what they measure, not small in a corner.
+10. **Each role's own checklist:** director §8, cinematographer §10, look §5, animator §5.

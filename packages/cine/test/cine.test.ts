@@ -648,3 +648,19 @@ print(json.dumps({"misses": c.misses([(1.0, 110.0), (3.0, 400.0)]), "when": c.wh
     expect(got.mono).toBe(true);
   });
 });
+
+describe("frame QA: dim and stale", () => {
+  it("flags a dark, unchanging clip and passes a bright, changing one", () => {
+    const got = py(`
+import json, os, subprocess, tempfile
+from cine import frameqa as F
+d = tempfile.mkdtemp()
+dark, bright = os.path.join(d, "dark.mp4"), os.path.join(d, "bright.mp4")
+subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=320x180:d=20:r=30,drawbox=x=150:y=80:w=6:h=6:color=white:t=fill",
+                "-pix_fmt", "yuv420p", dark], check=True)
+subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=320x180:d=20:r=30", "-pix_fmt", "yuv420p", bright], check=True)
+print(json.dumps({"dark": sorted({k for k, _, _ in F.style(dark)}), "bright": sorted({k for k, _, _ in F.style(bright)})}))`);
+    expect(got.dark).toEqual(["dim", "stale"]);
+    expect(got.bright).toEqual([]);
+  });
+});

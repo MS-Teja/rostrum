@@ -38,7 +38,8 @@ Each beat has exactly one subject and one dominant motion. If a beat needs two, 
 - **Moves ride the words.** A move starts on the word that motivates it, and lands before the word its action belongs to, within about 0.3 s. The words lane on the sheet shows this. The camera arrives 0.5–1 s before the action (see the cinematographer guide). Place keys by words (`voice.at("fire")`), not by seconds.
 - **Still or slow under the voice.** While the voice explains what's already in frame, the camera holds still or creeps slowly one way. Move faster when the story moves: a new subject, a reveal, an emphasis.
 - **Hold what matters.** Hold an important image for at least 2 s, so it can be read. Hold the scene's "remember" image longest.
-- **Keep it fed.** Give something new every 3–6 s: a new subject, a reveal, a change of size, an actor's action, or a new idea in the voice over a held frame. Silence with nothing moving for over 4 s feels dead; the sheet flags it.
+- **Keep it fed.** Give a new image every 3–5 s: a new subject, a new place, a change of scale, a reveal, an actor's action, a number landing. "A new idea in the voice over a held frame" doesn't count: the overnight Voyager film used that to hold one subject with a slow creep or orbit for 15–60 s, and was rejected for it ("in most of the scene, there is only voyager and slight camera movement"). One subject holds at most about 8 s without something new in the picture. The bar changes the image every 3–4 s (`research/refs/notes.md`). Checked on the render: `cine.frameqa`'s `stale` flag.
+- **Vary place and scale across a scene.** A scene that is one object in one place is a shot, not a scene. Move between places (Earth, the dish, the craft, the journey between) and scales, and picture comparisons at human scale.
 - **Breathe.** After a big move or a big reveal, give the viewer a slower beat to take it in before the next.
 
 ## 4. Transitions between scenes

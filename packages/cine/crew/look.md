@@ -49,6 +49,11 @@ All values are measured inside the subject mask unless stated.
 
 Say why in the shot plan. A planned look is a decision, not an excuse.
 
+**The whole frame, measured on the render (`cine.frameqa`).** The subject masks above say nothing about an empty frame. A frame of small dots and thin lines on black passes every subject check and still looks basic: the overnight Voyager film (2026-11-22, rejected) sat at a mean brightness of 0.04 with 88% of the frame near black. The bar measures at 0.21–0.25 and 26–43% (`research/refs/notes.md`). So:
+- Keep a big, lit subject in frame. In space, the subject is the thing (a planet, the Sun, a beam of light, the craft), drawn big and bright; space is the backdrop. Cheat the scale where it helps, uniformly, with "not to scale" in small print.
+- Dark stretches stay short: under 15 s at a time and under 45% of the video (the `dim` flag).
+- Glow and colour carry stylised shots: emissive subjects, soft bloom, saturated light. Photoreal isn't required; readable and rich is.
+
 ## 3. Assets: real first
 
 - **Models.** Use the real ones (NASA's 3D models are public domain). Measure features off the model, never guess them, and record each measurement in a code comment.
